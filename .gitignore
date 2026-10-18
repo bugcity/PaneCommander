@@ -1,0 +1,48 @@
+# Build output and editor state
+**/bin/
+**/obj/
+.vs/
+.idea/
+.dotnet/
+.nuget/
+TestResults/
+*.user
+*.suo
+__pycache__/
+*.py[cod]
+
+# Local agent state and attachments
+.codex/
+.agents/
+.codex-remote-attachments/
+
+# Machine-specific evidence, test fixtures and packaged binaries
+/artifacts/
+/releases/
+/docs/verification/
+*.log
+*.trx
+*.etl
+*.dmp
+
+# Local investigation notes (retain the files locally)
+/*_REPORT.md
+/*_PLAN.md
+/*_INVENTORY.md
+/*_VERIFICATION.md
+/IMPLEMENTATION_STATUS.md
+/DECISIONS.md
+/FILE_AGE_DESIGN_REVIEW.md
+/RENDERING_BENCHMARK_PROTOCOL.md
+
+# Credentials and local configuration; examples may be committed
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pfx
+*.p12
+*.key
+*.pem
+**/settings.local.json
+**/appsettings.*.local.json

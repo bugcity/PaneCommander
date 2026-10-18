@@ -1,0 +1,101 @@
+<UserControl x:Class="PaneCommander.App.Views.PaneView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:PaneCommander.App.Views">
+  <UserControl.Style>
+    <Style TargetType="{x:Type local:PaneView}">
+      <!-- Tag is the visual focus state, independent of the last command target. -->
+      <Setter Property="Tag" Value="False" />
+      <Style.Triggers>
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding IsKeyboardFocusWithin,RelativeSource={RelativeSource Self}}" Value="True" />
+            <Condition Binding="{Binding IsActive,RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+          </MultiDataTrigger.Conditions>
+          <Setter Property="Tag" Value="True" />
+        </MultiDataTrigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Style>
+  <Border BorderThickness="{DynamicResource PaneBorderWidth}">
+    <Border.Style>
+      <Style TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource InactivePaneBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource InactiveBorderBrush}" />
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding Tag,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" Value="True">
+            <Setter Property="Background" Value="{DynamicResource ActivePaneBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </Border.Style>
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition />
+      </Grid.RowDefinitions>
+      <Border Padding="5,0">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource InactiveHeaderBrush}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding Tag,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource ActiveHeaderBrush}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Content="移動" Command="{Binding GoToPath}" ToolTip="フォルダへ移動" />
+          <TextBlock DockPanel.Dock="Right" Text="ACTIVE" Margin="5,0" VerticalAlignment="Center" Foreground="{DynamicResource AccentBrush}">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock">
+                <Setter Property="Visibility" Value="Hidden" />
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding Tag,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+          <TextBlock Text="{Binding State.SelectedTab.CurrentPath}" ToolTip="{Binding State.SelectedTab.CurrentPath}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+        </DockPanel>
+      </Border>
+      <WrapPanel Grid.Row="1" Orientation="Horizontal">
+        <Button Content="←" Command="{Binding Back}" IsEnabled="{Binding State.SelectedTab.CanGoBack}" ToolTip="戻る" />
+        <Button Content="→" Command="{Binding Forward}" IsEnabled="{Binding State.SelectedTab.CanGoForward}" ToolTip="進む" />
+        <Button Content="↑" Command="{Binding Up}" ToolTip="親フォルダ" />
+        <Button Content="↻" Command="{Binding Refresh}" ToolTip="更新" />
+        <Button Content="中止" Command="{Binding Cancel}" Visibility="{Binding State.SelectedTab.IsLoading,Converter={StaticResource BoolVisibility}}" IsEnabled="{Binding State.SelectedTab.IsLoading}" />
+        <Button Content="カラム" Command="{Binding ConfigureColumns}" ToolTip="この側の列の表示・順序・幅" />
+        <Button Content="フィルター" Click="Filter_Click" ToolTip="名前の部分一致 / · Enterで一覧へ · Escで解除" />
+        <Button x:Name="DisplayOptionsButton" Content="表示オプション ▾" Click="DisplayOptions_Click" ToolTip="隠しファイル・.ファイルの表示を設定" />
+        <Popup x:Name="DisplayOptionsPopup" PlacementTarget="{Binding ElementName=DisplayOptionsButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" Opened="DisplayOptions_Opened" PreviewKeyDown="DisplayOptions_KeyDown" DataContext="{Binding PlacementTarget.DataContext,RelativeSource={RelativeSource Self}}">
+          <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource InactiveBorderBrush}" BorderThickness="1" Padding="12,8">
+            <StackPanel KeyboardNavigation.TabNavigation="Cycle">
+              <CheckBox x:Name="ShowHiddenFiles" Content="隠しファイルを表示" IsChecked="{Binding State.SelectedTab.ShowHiddenFiles,Mode=TwoWay}" Margin="0,4" ToolTip="Hidden属性がある項目（Ctrl+H）" />
+              <CheckBox x:Name="ShowDotFiles" Content=".ファイルを表示" IsChecked="{Binding State.SelectedTab.ShowDotFiles,Mode=TwoWay}" Margin="0,4" ToolTip="名前が「.」で始まり、Hidden属性がない項目" />
+            </StackPanel>
+          </Border>
+        </Popup>
+        <TextBox x:Name="FilterBox" Width="150" Margin="3,0" VerticalContentAlignment="Center" Text="{Binding State.SelectedTab.FilterText,UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding State.SelectedTab.IsFilterOpen,Converter={StaticResource BoolVisibility}}" PreviewKeyDown="Filter_KeyDown" AutomationProperties.Name="ファイル名フィルター" />
+        <Button Content="＋" Command="{Binding AddTab}" ToolTip="タブ追加 Ctrl+T" />
+      </WrapPanel>
+      <TabControl x:Name="Tabs" Tag="{Binding Tag,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" Grid.Row="2" Margin="2" ItemsSource="{Binding State.Tabs}" SelectedItem="{Binding State.SelectedTab,Mode=TwoWay}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}">
+        <TabControl.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal" ToolTip="{Binding CurrentPath}">
+              <TextBlock Text="{Binding Title}" MaxWidth="140" TextTrimming="CharacterEllipsis" />
+              <Button Content="×" Padding="4,0" Margin="6,0,0,0" Command="{Binding DataContext.CloseTab,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" CommandParameter="{Binding}" />
+            </StackPanel>
+          </DataTemplate>
+        </TabControl.ItemTemplate>
+        <TabControl.ContentTemplate>
+          <DataTemplate>
+            <local:FolderView />
+          </DataTemplate>
+        </TabControl.ContentTemplate>
+      </TabControl>
+    </Grid>
+  </Border>
+</UserControl>

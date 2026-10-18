@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF></PropertyGroup>
+  <ItemGroup>
+    <Reference Include="PaneCommander.App"><HintPath>../../src/PaneCommander.App/bin/Release/net10.0-windows/PaneCommander.App.dll</HintPath></Reference>
+    <Reference Include="PaneCommander.Core"><HintPath>../../src/PaneCommander.Core/bin/Release/net10.0/PaneCommander.Core.dll</HintPath></Reference>
+    <Reference Include="PaneCommander.Infrastructure"><HintPath>../../src/PaneCommander.Infrastructure/bin/Release/net10.0/PaneCommander.Infrastructure.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

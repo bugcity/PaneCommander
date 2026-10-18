@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <IsTestProject>true</IsTestProject><IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.8.3" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.8.3" />
+    <ProjectReference Include="../../src/PaneCommander.Core/PaneCommander.Core.csproj" />
+    <ProjectReference Include="../../src/PaneCommander.Infrastructure/PaneCommander.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/PaneCommander.App/PaneCommander.App.csproj" />
+    <ProjectReference Include="../../tools/PaneCommander.ShellActionProbe/PaneCommander.ShellActionProbe.csproj" ReferenceOutputAssembly="false" />
+    <Content Include="../../tools/PaneCommander.ShellActionProbe/bin/$(Configuration)/net10.0-windows/PaneCommander.ShellActionProbe.exe;../../tools/PaneCommander.ShellActionProbe/bin/$(Configuration)/net10.0-windows/PaneCommander.ShellActionProbe.dll;../../tools/PaneCommander.ShellActionProbe/bin/$(Configuration)/net10.0-windows/PaneCommander.ShellActionProbe.deps.json;../../tools/PaneCommander.ShellActionProbe/bin/$(Configuration)/net10.0-windows/PaneCommander.ShellActionProbe.runtimeconfig.json" Link="ShellProbe/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

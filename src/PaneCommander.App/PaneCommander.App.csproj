@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets/PaneCommander.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets/PaneCommander.ico" />
+    <ProjectReference Include="../PaneCommander.Core/PaneCommander.Core.csproj" />
+    <ProjectReference Include="../PaneCommander.Infrastructure/PaneCommander.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

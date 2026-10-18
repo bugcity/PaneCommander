@@ -1,0 +1,66 @@
+<UserControl x:Class="PaneCommander.App.Views.FolderView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:app="clr-namespace:PaneCommander.App" xmlns:local="clr-namespace:PaneCommander.App.Views">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <ListView x:Name="Files" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry,Mode=TwoWay}" SelectionMode="Extended" MouseDoubleClick="Files_MouseDoubleClick" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}" ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" AutomationProperties.Name="ファイル一覧">
+      <ListView.ItemContainerStyle>
+        <Style TargetType="ListViewItem">
+          <Setter Property="MinHeight" Value="{DynamicResource RowHeight}" />
+          <Setter Property="Margin" Value="{DynamicResource RowMargin}" />
+          <Setter Property="Padding" Value="3,2" />
+          <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+          <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="ListViewItem">
+                <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                  <GridViewRowPresenter Content="{TemplateBinding Content}" Columns="{Binding View.Columns,RelativeSource={RelativeSource AncestorType=ListView}}" />
+                </Border>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+          <Style.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter Property="Background" Value="{DynamicResource InactiveSelectionBrush}" />
+            </Trigger>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsSelected,RelativeSource={RelativeSource Self}}" Value="True" />
+                <Condition Binding="{Binding IsKeyboardFocusWithin,RelativeSource={RelativeSource AncestorType=ListView}}" Value="True" />
+                <Condition Binding="{Binding IsActive,RelativeSource={RelativeSource AncestorType=Window}}" Value="True" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Background" Value="{DynamicResource ActiveSelectionBrush}" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </ListView.ItemContainerStyle>
+      <ListView.View>
+        <GridView AllowsColumnReorder="False">
+          <GridViewColumn Header="名前">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <DockPanel ToolTip="{Binding MetadataError}">
+                  <TextBlock DockPanel.Dock="Left" Text="{Binding Icon}" Width="18" Foreground="{DynamicResource AccentBrush}" />
+                  <local:HighlightedFileName FileName="{Binding Name}" Query="{Binding DataContext.FilterText,RelativeSource={RelativeSource AncestorType=ListView}}" />
+                </DockPanel>
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Header="種類"><GridViewColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Kind}" ToolTip="{Binding KindToolTip}" TextTrimming="CharacterEllipsis" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+          <GridViewColumn Header="サイズ"><GridViewColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding SizeText}" ToolTip="{Binding SizeToolTip}" TextAlignment="Right" HorizontalAlignment="Stretch" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+          <GridViewColumn Header="File Age">
+            <GridViewColumn.CellTemplate>
+              <DataTemplate>
+                <local:DateCell Entry="{Binding}" />
+              </DataTemplate>
+            </GridViewColumn.CellTemplate>
+          </GridViewColumn>
+          <GridViewColumn Header="更新日時"><GridViewColumn.CellTemplate><DataTemplate><TextBlock Tag="AbsoluteModified" Text="{Binding ModifiedText}" ToolTip="{Binding ModifiedText}" TextTrimming="CharacterEllipsis" Visibility="{Binding ShowModified,RelativeSource={RelativeSource AncestorType={x:Type local:FolderView}},Converter={x:Static app:ThemeManager.BooleanVisibility}}" /></DataTemplate></GridViewColumn.CellTemplate></GridViewColumn>
+        </GridView>
+      </ListView.View>
+    </ListView>
+    <TextBlock Grid.Row="1" Text="{Binding Status}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" Margin="4,2" Foreground="{DynamicResource MutedBrush}" />
+  </Grid>
+</UserControl>
