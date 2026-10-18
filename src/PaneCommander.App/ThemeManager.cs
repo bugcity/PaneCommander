@@ -26,6 +26,7 @@ public static class ThemeManager
         {
             ["CanvasBrush"] = settings.Background, ["SurfaceBrush"] = settings.ActiveBackground, ["TextBrush"] = settings.Foreground,
             ["MutedBrush"] = settings.MutedForeground, ["AccentBrush"] = settings.ActiveBorder,
+            ["TitleBackgroundBrush"] = settings.TitleBackground, ["TitleForegroundBrush"] = settings.TitleForeground,
             ["FilterMatchBrush"] = settings.FilterMatchForeground,
             ["ActivePaneBrush"] = settings.ActiveBackground, ["InactivePaneBrush"] = settings.InactiveBackground,
             ["ActiveHeaderBrush"] = settings.ActiveHeader, ["InactiveHeaderBrush"] = settings.InactiveHeader,

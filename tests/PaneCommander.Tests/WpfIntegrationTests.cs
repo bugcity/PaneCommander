@@ -52,6 +52,18 @@ public sealed partial class WpfIntegrationTests
                 var right = panes.Single(p => ((PaneViewModel)p.DataContext).State.Side == PaneSide.Right);
                 var leftList = Descendants<ListView>(left).Single();
                 Assert.AreEqual(1, leftList.Items.Count);
+                var titleBar = (Border)window.FindName("AppTitleBar");
+                var chrome = System.Windows.Shell.WindowChrome.GetWindowChrome(window);
+                Assert.IsNotNull(chrome);
+                Assert.AreEqual(40d, chrome.CaptionHeight);
+                foreach (var label in new[] { "お気に入り", "更新", "設定" })
+                {
+                    var titleButton = Descendants<Button>(titleBar).Single(b => Equals(b.Content, label));
+                    Assert.IsTrue(System.Windows.Shell.WindowChrome.GetIsHitTestVisibleInChrome((UIElement)VisualTreeHelper.GetParent(titleButton)));
+                    Assert.IsTrue(titleButton.Focusable);
+                }
+                CompleteWithDispatcher(FileIconProvider.GetAsync((FileEntry)leftList.Items[0])); Pump();
+                Assert.IsNotNull(Descendants<ShellFileIcon>(leftList).First().Source);
                 File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "m2-layout.json"), System.Text.Json.JsonSerializer.Serialize(new { windowWidth = window.ActualWidth, windowHeight = window.ActualHeight, listWidth = leftList.ActualWidth, listHeight = leftList.ActualHeight, listTop = leftList.TransformToAncestor((Visual)window.Content).Transform(new Point()).Y, fontSize = window.FontSize }));
                 Assert.AreEqual(window.IsActive && left.IsKeyboardFocusWithin ? 1 : 0, Descendants<TextBlock>(window).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
                 var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);

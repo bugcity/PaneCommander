@@ -42,7 +42,10 @@
             <GridViewColumn.CellTemplate>
               <DataTemplate>
                 <DockPanel ToolTip="{Binding MetadataError}">
-                  <TextBlock DockPanel.Dock="Left" Text="{Binding Icon}" Width="18" Foreground="{DynamicResource AccentBrush}" />
+                  <Grid DockPanel.Dock="Left" Width="20" Height="18" Margin="0,0,3,0" VerticalAlignment="Center">
+                    <local:ShellFileIcon HorizontalAlignment="Left" />
+                    <Path Data="M1,17 L1,11 7,11 M1,17 L8,10" Stroke="#FFFFFF" StrokeThickness="2" HorizontalAlignment="Left" VerticalAlignment="Bottom" IsHitTestVisible="False" Visibility="{Binding IsReparsePoint,Converter={StaticResource BoolVisibility}}" />
+                  </Grid>
                   <local:HighlightedFileName FileName="{Binding Name}" Query="{Binding DataContext.FilterText,RelativeSource={RelativeSource AncestorType=ListView}}" />
                 </DockPanel>
               </DataTemplate>
