@@ -12,6 +12,13 @@ public sealed class TabState : ObservableObject, IDisposable
     private string currentPath;
     private string inputPath;
     private string status = "読み込み待ち";
+    private string operationMessage = "";
+    private int operationVersion;
+    private readonly TimeProvider statusClock;
+    private OperationStatusKind operationKind;
+    private TimeSpan operationRemaining;
+    private long? operationShownAt;
+    private bool statusPresented;
     private string watchWarning = "";
     public string WatchWarning
     {
@@ -37,17 +44,64 @@ public sealed class TabState : ObservableObject, IDisposable
     public string SortProperty { get; set; } = nameof(FileEntry.Name);
     public bool SortDescending { get; set; }
 
-    public TabState(string path, IFileSystemService fileSystem, IErrorLogger logger)
+    public TabState(string path, IFileSystemService fileSystem, IErrorLogger logger, TimeProvider? statusClock = null)
     {
         currentPath = inputPath = path;
         this.fileSystem = fileSystem;
         this.logger = logger;
+        this.statusClock = statusClock ?? TimeProvider.System;
     }
 
     public string CurrentPath { get => currentPath; private set => Set(ref currentPath, value); }
     public string InputPath { get => inputPath; set => Set(ref inputPath, value); }
     public string Title => string.Equals(System.IO.Path.TrimEndingDirectorySeparator(CurrentPath),System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetPathRoot(CurrentPath)??""),StringComparison.OrdinalIgnoreCase) ? CurrentPath : System.IO.Path.GetFileName(CurrentPath.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : CurrentPath;
-    public string Status { get => status + (watchWarning.Length == 0 ? "" : " · " + watchWarning); private set => Set(ref status, value); }
+    public string Status { get => status + (operationMessage.Length == 0 ? "" : " · " + operationMessage) + (watchWarning.Length == 0 ? "" : " · " + watchWarning); private set => Set(ref status, value); }
+    /// <summary>操作開始時のタブに通知を固定し、後の移動・操作で古い通知を無効化する。</summary>
+    public OperationStatusKind OperationKind => operationKind;
+    public bool CanDismissOperationStatus => operationKind is OperationStatusKind.Success or OperationStatusKind.Attention;
+    public TimeSpan? OperationStatusTimeRemaining => operationKind == OperationStatusKind.Success
+        ? TimeSpan.FromTicks(Math.Max(0, (operationRemaining - (operationShownAt is { } started ? statusClock.GetElapsedTime(started) : TimeSpan.Zero)).Ticks)) : null;
+    public Action<string, OperationStatusKind> BeginOperationStatus(string message)
+    {
+        var version = ++operationVersion;
+        void Report(string value, OperationStatusKind kind)
+        {
+            if (disposed || version != operationVersion) return;
+            SetOperationStatus(value, kind);
+        }
+        Report(message, OperationStatusKind.Progress);
+        return Report;
+    }
+    private void ClearOperationStatus()
+    {
+        operationVersion++;
+        SetOperationStatus("", OperationStatusKind.None);
+    }
+    private void SetOperationStatus(string message, OperationStatusKind kind)
+    {
+        operationMessage = message; operationKind = kind;
+        operationRemaining = kind == OperationStatusKind.Success ? TimeSpan.FromSeconds(5) : TimeSpan.Zero;
+        operationShownAt = statusPresented && kind == OperationStatusKind.Success ? statusClock.GetTimestamp() : null;
+        Raise(nameof(Status)); Raise(nameof(OperationKind)); Raise(nameof(CanDismissOperationStatus)); Raise(nameof(OperationStatusTimeRemaining));
+    }
+    public bool DismissOperationStatus()
+    {
+        if (!CanDismissOperationStatus) return false;
+        ClearOperationStatus(); return true;
+    }
+    public void SetStatusPresented(bool presented)
+    {
+        if (disposed || statusPresented == presented) return;
+        if (operationShownAt is not null) operationRemaining = OperationStatusTimeRemaining ?? TimeSpan.Zero;
+        statusPresented = presented; operationShownAt = null;
+        if (operationKind != OperationStatusKind.Success) return;
+        if (operationRemaining <= TimeSpan.Zero) { ClearOperationStatus(); return; }
+        if (presented) operationShownAt = statusClock.GetTimestamp();
+    }
+    public void ExpireOperationStatus()
+    {
+        if (statusPresented && OperationStatusTimeRemaining is { } remaining && remaining <= TimeSpan.Zero) ClearOperationStatus();
+    }
     public bool IsLoading { get => isLoading; private set => Set(ref isLoading, value); }
     public IReadOnlyList<FileEntry> Entries { get => entries; private set => Set(ref entries, value); }
     public FileEntry? SelectedEntry { get => selectedEntry; set => Set(ref selectedEntry, value); }
@@ -60,6 +114,7 @@ public sealed class TabState : ObservableObject, IDisposable
         if (disposed) return;
         // 履歴操作中の連打で同じ履歴を二重に確定させない。
         if (IsLoading && kind is NavigationKind.Back or NavigationKind.Forward) return;
+        if (kind != NavigationKind.Refresh) ClearOperationStatus();
         pending?.Cancel();
         var cancellation = new CancellationTokenSource();
         pending = cancellation;
@@ -95,8 +150,7 @@ public sealed class TabState : ObservableObject, IDisposable
                 : selectPath is null ? null : Entries.FirstOrDefault(e => StringComparer.OrdinalIgnoreCase.Equals(
                     System.IO.Path.TrimEndingDirectorySeparator(e.FullPath), System.IO.Path.TrimEndingDirectorySeparator(selectPath)));
             suspendedSelectionPath = null;
-            Status = $"{Entries.Count:N0} 件";
-            if (Entries.Any(e => e.MetadataError is not null)) Status += " · 一部の属性を取得できません（名前にマウスを重ねて確認）";
+            Status = $"{Entries.Count:N0} 件" + (Entries.Any(e => e.MetadataError is not null) ? " · 一部の属性を取得できません（名前にマウスを重ねて確認）" : "");
             Raise(nameof(Title));
             Raise(nameof(CanGoBack));
             Raise(nameof(CanGoForward));
@@ -147,13 +201,15 @@ public sealed class TabState : ObservableObject, IDisposable
     {
         if (entry is null) return;
         if (entry.IsDirectory) { await NavigateAsync(entry.FullPath); return; }
-        try { await fileSystem.OpenFileAsync(entry, CancellationToken.None); Status = $"既定アプリで開きました: {entry.Name}"; }
-        catch (Exception ex) { Status = $"開けません: {ex.Message}"; logger.Log("ファイル起動", ex); }
+        var report = BeginOperationStatus($"既定アプリを起動中: {entry.Name}");
+        try { await fileSystem.OpenFileAsync(entry, CancellationToken.None); report($"既定アプリで開きました: {entry.Name}", OperationStatusKind.Success); }
+        catch (Exception ex) { report($"開けません: {ex.Message}", OperationStatusKind.Attention); logger.Log("ファイル起動", ex); }
     }
 
     public void Dispose()
     {
         disposed = true;
+        statusPresented = false; ClearOperationStatus();
         pending?.Cancel();
         SelectedEntry = null;
         suspendedSelectionPath = null;

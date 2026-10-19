@@ -22,6 +22,7 @@ public partial class FolderView : UserControl
     public FolderView()
     {
         InitializeComponent();
+        InitializeStatusLifecycle();
         FileMarqueeSelection.Attach(Files, () => main is { IsFileOperationRunning: false });
         _ = new FileListFilter(Files, () => DataContext as TabState);
         columns=((GridView)Files.View).Columns.Zip(new[]{"Name","Kind","Size","FileAge","LastWriteTime"}).ToDictionary(p=>p.Second,p=>p.First);
@@ -64,6 +65,7 @@ public partial class FolderView : UserControl
     }
     public void ReleaseResources()
     {
+        UnbindStatusLifecycle();
         if (main is not null) PropertyChangedEventManager.RemoveHandler(main, SettingsChanged, ""); main = null;
         if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, "");
     }

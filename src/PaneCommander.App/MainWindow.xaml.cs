@@ -39,12 +39,6 @@ public partial class MainWindow : Window
         else SystemCommands.MaximizeWindow(this);
     }
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
-    private void TitleMessage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        e.Handled = true;
-        if (e.ClickCount == 2) Maximize_Click(sender, e);
-        else if (e.LeftButton == MouseButtonState.Pressed) NativeTitleBar.BeginCaptionDrag(this, PointToScreen(e.GetPosition(this)));
-    }
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         ApplyAppearance();
@@ -297,6 +291,7 @@ public partial class MainWindow : Window
             { FileSelection.Toggle(list, e.OriginalSource as DependencyObject); e.Handled = true; return; }
             if (key is Key.OemQuestion or Key.Divide) { pane.BeginFilter(); e.Handled = true; return; }
             if (key == Key.Escape && (Model.Workspace.ActivePane.SelectedTab.FilterText.Length > 0 || Model.Workspace.ActivePane.SelectedTab.IsFilterOpen)) { Model.Workspace.ActivePane.SelectedTab.ClearFilter(); e.Handled = true; return; }
+            if (key == Key.Escape && Model.Workspace.ActivePane.SelectedTab.DismissOperationStatus()) { e.Handled = true; return; }
         }
         AsyncCommand? command = null;
         if (key == Key.Tab && modifiers is ModifierKeys.None or ModifierKeys.Shift && HasAncestor<FolderView>(e.OriginalSource as DependencyObject))

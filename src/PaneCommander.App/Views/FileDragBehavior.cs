@@ -94,7 +94,7 @@ public static class FileDragBehavior
                 var intended = request.Kind == FileOperationKind.Copy ? DragDropEffects.Copy : DragDropEffects.Move;
                 e.Data.SetData("Performed DropEffect", new System.IO.MemoryStream(BitConverter.GetBytes(0)));
                 e.Data.SetData("Logical Performed DropEffect", new System.IO.MemoryStream(BitConverter.GetBytes(0)));
-                var task = main.ExecuteFileOperationAsync(request, new WindowInteropHelper(Window.GetWindow(list)).Handle);
+                var task = main.ExecuteFileOperationAsync(request, new WindowInteropHelper(Window.GetWindow(list)).Handle, list.DataContext as TabState);
                 // OLE Drop must not return a successful move before its asynchronous I/O completes.
                 // A nested Dispatcher frame keeps the UI responsive without a polling timer.
                 if (!task.IsCompleted) { var frame = new DispatcherFrame(); _ = task.ContinueWith(_ => list.Dispatcher.BeginInvoke(() => frame.Continue = false), TaskScheduler.Default); Dispatcher.PushFrame(frame); }

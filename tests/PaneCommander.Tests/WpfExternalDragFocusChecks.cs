@@ -34,7 +34,12 @@ public sealed partial class WpfIntegrationTests
                 Assert.IsFalse(window.IsActive);
                 Assert.IsFalse(list.IsKeyboardFocusWithin);
             }
-            void ReturnToSource() { receiver?.Close(); receiver = null; window.RecoverFileDragFocus(); Pump(); }
+            void ReturnToSource()
+            {
+                receiver?.Close(); receiver = null;
+                window.Activate(); Pump(); // Match activation's queued recovery after native focus restoration.
+                window.RecoverFileDragFocus(); Pump();
+            }
             Select(1, 2);
             Descendants<Button>(window).Single(b => Equals(b.Content, "更新")).Focus(); Pump();
             var state = window.BeginFileDragFocus(list, tab); Assert.IsNotNull(state);
@@ -43,7 +48,7 @@ public sealed partial class WpfIntegrationTests
             window.CompleteFileDragFocus(state); Pump();
             Assert.IsFalse(list.IsKeyboardFocusWithin, "外部アプリでのドロップ直後にフォーカスを奪わない");
             ReturnToSource();
-            Assert.IsTrue(list.IsKeyboardFocusWithin);
+            Assert.IsTrue(list.IsKeyboardFocusWithin, $"再アクティブ化後の一覧フォーカス: active={window.IsActive}, focus={Keyboard.FocusedElement?.GetType().Name}");
             CollectionAssert.AreEquivalent(new[] { "b.txt", "c.txt" }, list.SelectedItems.Cast<FileEntry>().Select(e => e.Name).ToArray());
             Assert.IsTrue(Keyboard.FocusedElement is ListViewItem { IsSelected: true });
 

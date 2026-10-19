@@ -20,7 +20,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly IFileOperationService? fileOperations;
     private readonly IShellEditService? shellEdit;
     private bool editing;
-    private bool operating; private Task operationsIdle=Task.CompletedTask;private string operationStatus="";
+    private bool operating; private Task operationsIdle=Task.CompletedTask;
     public MainViewModel(IFileSystemService fileSystem, IErrorLogger logger, ISettingsStore? settingsStore = null, AppearanceSettings? settings = null,
         IFavoritesStore? favoritesStore = null, FavoritesDocument? savedFavorites = null, ISessionStore? sessionStore = null, SessionDocument? session = null,IFileOperationService? fileOperations=null, IShellEditService? shellEdit=null)
     {
@@ -81,44 +81,49 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public async Task EditSelectedAsync()
     {
         if (!CanEditSelected || SingleEditTarget() is not { } entry) return;
+        var report = Workspace.ActivePane.SelectedTab.BeginOperationStatus("Windows Shellで編集を起動中…");
         editing = true; NotifyFileCommands();
-        try { await shellEdit!.EditAsync(entry, GetShellOwner?.Invoke() ?? IntPtr.Zero); OperationStatus = "Windows Shellの編集を実行しました。"; }
-        catch (Exception ex) { OperationStatus = "編集できません: " + ex.Message; logger.Log("Shell編集", ex); }
+        try { await shellEdit!.EditAsync(entry, GetShellOwner?.Invoke() ?? IntPtr.Zero); report("Windows Shellの編集を実行しました。", OperationStatusKind.Success); }
+        catch (Exception ex) { report("編集できません: " + ex.Message, OperationStatusKind.Attention); logger.Log("Shell編集", ex); }
         finally { editing = false; NotifyFileCommands(); }
     }
     public IFileSystemService FileSystem { get; }
     public bool DeleteCommandEnabled {get;set;}
     public bool IsFileOperationRunning=>operating;
-    public string OperationStatus {get=>operationStatus;private set=>Set(ref operationStatus,value);}
     public Func<string[]>? GetSelectedPaths {get;set;}
     public Func<FileOperationKind,Task>? RequestFileOperation {get;set;}
     public Func<string,Task>? RequestPreview {get;set;}
     public void NotifyFileCommands(){foreach(var f in Functions)f.Command.NotifyCanExecuteChanged();}
-    public async Task<FileOperationResult> ExecuteFileOperationAsync(FileOperationRequest request,IntPtr owner)
-        => await ExecuteFileOperationBatchAsync([request], owner);
-    public async Task<FileOperationResult> ExecuteFileOperationBatchAsync(IReadOnlyList<FileOperationRequest> requests,IntPtr owner)
+    public Task<FileOperationResult> ExecuteFileOperationAsync(FileOperationRequest request,IntPtr owner)
+        => ExecuteFileOperationAsync(request, owner, null);
+    public async Task<FileOperationResult> ExecuteFileOperationAsync(FileOperationRequest request,IntPtr owner,TabState? statusTab)
+        => await ExecuteFileOperationBatchAsync([request], owner, statusTab);
+    public async Task<FileOperationResult> ExecuteFileOperationBatchAsync(IReadOnlyList<FileOperationRequest> requests,IntPtr owner,TabState? statusTab = null)
     {
         if(fileOperations is null)throw new InvalidOperationException("ファイル操作サービスがありません。");
         if(operating)throw new InvalidOperationException("別のファイル操作が実行中です。");
         foreach(var request in requests) DropPolicy.Validate(request);
         var idle=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);operationsIdle=idle.Task;
-        operating=true;Raise(nameof(IsFileOperationRunning));NotifyFileCommands();OperationStatus="Windowsでファイル操作中…";
+        var report = (statusTab ?? Workspace.ActivePane.SelectedTab).BeginOperationStatus("Windowsでファイル操作中…");
+        var completion = "ファイル操作が完了しました。";
+        var completionKind = OperationStatusKind.Success;
+        operating=true;Raise(nameof(IsFileOperationRunning));NotifyFileCommands();
         var completed=0;
         try
         {
             foreach(var request in requests)
             {
                 var result=await fileOperations.ExecuteAsync(request,owner);
-                if(result.Aborted){OperationStatus=$"{completed}/{requests.Count}操作完了。残りは中止または一部未処理です。現在の一覧を確認してください。";return result;}
+                if(result.Aborted){completionKind=OperationStatusKind.Attention;completion=$"{completed}/{requests.Count}操作完了。残りは中止または一部未処理です。現在の一覧を確認してください。";return result;}
                 completed++;
             }
-            OperationStatus="Windowsの操作が終了しました。一覧を更新しました。";return new(false);
+            return new(false);
         }
-        catch{OperationStatus=$"{completed}/{requests.Count}操作完了。残りの操作中にエラーが発生しました。現在の一覧を確認してください。";throw;}
+        catch{completionKind=OperationStatusKind.Attention;completion=$"{completed}/{requests.Count}操作完了。残りの操作中にエラーが発生しました。現在の一覧を確認してください。";throw;}
         finally
         {
-            await RefreshAfterFileOperationAsync();
-            operating=false;Raise(nameof(IsFileOperationRunning));NotifyFileCommands();idle.SetResult();
+            try { await RefreshAfterFileOperationAsync(); }
+            finally { report(completion, completionKind); operating=false;Raise(nameof(IsFileOperationRunning));NotifyFileCommands();idle.SetResult(); }
         }
     }
     public async Task RefreshAfterFileOperationAsync()

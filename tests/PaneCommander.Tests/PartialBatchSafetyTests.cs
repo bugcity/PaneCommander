@@ -42,7 +42,7 @@ public sealed class PartialBatchSafetyTests
             Assert.AreEqual(guard,Hash(existing));Assert.IsFalse(File.Exists(Path.Combine(right,"3.txt")));
             CollectionAssert.AreEquivalent(Directory.GetFiles(left),model.Workspace.Left.SelectedTab.Entries.Select(e=>e.FullPath).ToArray());
             CollectionAssert.AreEquivalent(Directory.GetFiles(right),model.Workspace.Right.SelectedTab.Entries.Select(e=>e.FullPath).ToArray());
-            StringAssert.Contains(model.OperationStatus,"1/3");Assert.IsFalse(model.IsFileOperationRunning);
+            StringAssert.Contains(model.Workspace.Left.SelectedTab.Status,"1/3");Assert.IsFalse(model.IsFileOperationRunning);
             Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new{kind,fail,Completed=1,UnprocessedSourcesPreserved=true,ExistingTargetPreserved=true,ListsMatch=true,GuiInput=false,Boundary="test adapter returns abort/error before second native operation; first operation uses actual Shell service"}));
         }
         finally

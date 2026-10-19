@@ -16,7 +16,7 @@ public sealed class ShortcutColumnTests
         var requests=new[]{"a","b","c"}.Select(n=>SameFolderOperation.Create(FileOperationKind.Copy,@"C:\left\"+n+".txt",n+"-copy.txt")).ToArray();
         Assert.IsTrue((await model.ExecuteFileOperationBatchAsync(requests,IntPtr.Zero)).Aborted);
         Assert.AreEqual(2,operations.Calls);Assert.AreEqual(before+2,files.ReadCount,"左右の選択タブをバッチ終了後に各1回だけ更新");
-        StringAssert.Contains(model.OperationStatus,"1/3");Assert.IsFalse(model.IsFileOperationRunning);
+        StringAssert.Contains(model.Workspace.Left.SelectedTab.Status,"1/3");Assert.IsFalse(model.IsFileOperationRunning);
     }
     private sealed class AbortSecond:IFileOperationService
     {

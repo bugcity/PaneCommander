@@ -109,8 +109,8 @@ public sealed class ShellActionTests
         var files = new ActionFiles(); var edit = new RecordingEdit { Failure = new NotSupportedException("Edit未登録") };
         using var model = new MainViewModel(files, new FakeLogger(), shellEdit: edit); await model.Workspace.InitializeAsync();
         model.GetSelectedPaths = () => [model.Workspace.ActivePane.SelectedTab.Entries[1].FullPath];
-        await model.EditSelectedAsync(); StringAssert.Contains(model.OperationStatus, "Edit未登録");
-        edit.Failure = new IOException("Shell起動失敗"); await model.EditSelectedAsync(); StringAssert.Contains(model.OperationStatus, "Shell起動失敗");
+        await model.EditSelectedAsync(); StringAssert.Contains(model.Workspace.ActivePane.SelectedTab.Status, "Edit未登録");
+        edit.Failure = new IOException("Shell起動失敗"); await model.EditSelectedAsync(); StringAssert.Contains(model.Workspace.ActivePane.SelectedTab.Status, "Shell起動失敗");
         Assert.AreEqual(0, files.Opened.Count); Assert.IsTrue(model.CanEditSelected);
     }
 
