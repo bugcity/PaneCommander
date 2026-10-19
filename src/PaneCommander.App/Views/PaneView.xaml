@@ -87,10 +87,14 @@
       <TabControl x:Name="Tabs" Tag="{Binding HasInputFocus,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" Grid.Row="2" Margin="2" ItemsSource="{Binding State.Tabs}" SelectedItem="{Binding State.SelectedTab,Mode=TwoWay}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource TextBrush}">
         <TabControl.ItemTemplate>
           <DataTemplate>
-            <StackPanel Orientation="Horizontal" ToolTip="{Binding CurrentPath}">
-              <TextBlock Text="{Binding Title}" MaxWidth="140" TextTrimming="CharacterEllipsis" />
-              <Button Content="×" Padding="4,0" Margin="6,0,0,0" Command="{Binding DataContext.CloseTab,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" CommandParameter="{Binding}" />
-            </StackPanel>
+            <Grid ToolTip="{Binding CurrentPath}">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding Title}" MaxWidth="140" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" />
+              <Button Grid.Column="1" Content="×" Padding="4,0" Margin="6,0,0,0" HorizontalAlignment="Right" Command="{Binding DataContext.CloseTab,RelativeSource={RelativeSource AncestorType={x:Type local:PaneView}}}" CommandParameter="{Binding}" />
+            </Grid>
           </DataTemplate>
         </TabControl.ItemTemplate>
         <TabControl.ContentTemplate>

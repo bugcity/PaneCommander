@@ -47,6 +47,8 @@ public static class FileDragBehavior
             if (start is not { } from || e.LeftButton != MouseButtonState.Pressed || main.IsFileOperationRunning || ShellMenuBehavior.IsOpen) return;
             var now = e.GetPosition(list); if (Math.Abs(now.X - from.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(now.Y - from.Y) < SystemParameters.MinimumVerticalDragDistance) return;
             start = null; deferred = null; var paths = dragSources; dragSources = []; if (paths.Length == 0) return;
+            var owner = Window.GetWindow(list) as MainWindow;
+            MainWindow.DragFocusState? focusRecovery = null;
             try
             {
                 var internalOnly = await Task.Run(() => ShellFileOperationService.RequiresInternalDrag(paths));
@@ -55,6 +57,7 @@ public static class FileDragBehavior
                 // Explorer's CF_HDROP handler may dereference junctions. Do not export link trees to it.
                 if (!internalOnly) { var files = new StringCollection(); files.AddRange(paths); data.SetFileDropList(files); }
                 DropDiagnostics.Write("drag-start", sources: paths);
+                focusRecovery = owner?.BeginFileDragFocus(list, tab());
                 var returned = DragDrop.DoDragDrop(list, data, DragDropEffects.Copy | DragDropEffects.Move);
                 DropDiagnostics.Write("drag-return", sources: paths, result: returned.ToString());
                 // DoDragDrop's return alone is not a reliable permission to delete source data.
@@ -65,7 +68,11 @@ public static class FileDragBehavior
                 }
             }
             catch (Exception ex) { ShowError(ex); }
-            finally { await main.RefreshAfterFileOperationAsync(); }
+            finally
+            {
+                try { await main.RefreshAfterFileOperationAsync(); }
+                finally { owner?.CompleteFileDragFocus(focusRecovery); }
+            }
         };
         list.AllowDrop = true;
         list.PreviewDragEnter += (_, e) => { e.Effects = Effect(e); e.Handled = true; };

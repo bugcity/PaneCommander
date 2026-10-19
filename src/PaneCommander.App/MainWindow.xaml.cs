@@ -29,6 +29,8 @@ public partial class MainWindow : Window
         DataContextChanged += (_, _) => { if (DataContext is MainViewModel { RestoredLayout: { } layout }) RestoreLayout(layout); };
         Closing += SaveBeforeClose;
         SizeChanged += (_, _) => UpdateSidebarLimit();
+        PreviewMouseDown += FileDragRecovery_MouseDown;
+        Closed += (_, _) => CancelFileDragFocus();
     }
     private void Minimize_Click(object sender, RoutedEventArgs e) => SystemCommands.MinimizeWindow(this);
     private void Maximize_Click(object sender, RoutedEventArgs e)
@@ -71,9 +73,9 @@ public partial class MainWindow : Window
         if (!closed) (Model.Workspace.Left.IsActive ? LeftPane : RightPane).FocusList();
         ready.TrySetResult();
     }
-    private void ModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) { if (e.PropertyName == nameof(MainViewModel.Settings)) ApplyAppearance(); }
+    private void ModelChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) { if (e.PropertyName == nameof(MainViewModel.Settings)) ApplyAppearance(); if (e.PropertyName == nameof(MainViewModel.IsFileOperationRunning) && !Model.IsFileOperationRunning) QueueFileDragFocus(); }
     internal void RefreshVisibleDates() { foreach (var cell in DateCells.Where(c => c.IsVisible).ToArray()) cell.Refresh(); }
-    private void WindowActivity(object? sender, EventArgs e) { if (WindowState != WindowState.Minimized) { lastNonMinimizedState = WindowState; RefreshVisibleDates(); } }
+    private void WindowActivity(object? sender, EventArgs e) { if (WindowState != WindowState.Minimized) { lastNonMinimizedState = WindowState; RefreshVisibleDates(); QueueFileDragFocus(); } }
     private void ApplyAppearance() { ThemeManager.Apply(Model.Settings); ApplySidebar(); foreach (var cell in DateCells.ToArray()) cell.Refresh(); }
     private void ApplySidebar()
     {

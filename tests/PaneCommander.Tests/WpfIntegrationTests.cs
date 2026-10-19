@@ -343,6 +343,7 @@ public sealed partial class WpfIntegrationTests
                 VerifyTabSortRestoration();
                 VerifyDeleteFocus();
                 VerifyActivePaneTarget();
+                VerifyExternalDragFocusRecovery();
                 VerifyFilterUi(application);
                 VerifyKeyboardAndHiddenUi();
                 VerifyFunctionAndClipboardKeys();
