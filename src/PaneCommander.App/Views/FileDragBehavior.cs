@@ -28,6 +28,7 @@ public static class FileDragBehavior
         IDataObject? cachedData = null; string? cachedDestination = null; DragDropKeyStates cachedKeys = 0; DragDropEffects cachedAllowed = 0, cachedEffect = DragDropEffects.None;
         list.PreviewMouseLeftButtonDown += (_, e) =>
         {
+            if (e.Handled) return;
             deferred = null; var row = ItemsControl.ContainerFromElement(list, e.OriginalSource as DependencyObject) as ListViewItem; start = row is null ? null : e.GetPosition(list); clickModifiers = Keyboard.Modifiers;
             anchor = row?.Content as FileEntry; dragSources = CaptureSources(list, anchor);
             if (row is { IsSelected: true } && (list.SelectedItems.Count > 1 || clickModifiers.HasFlag(ModifierKeys.Control)) && !clickModifiers.HasFlag(ModifierKeys.Shift)) { deferred = row; e.Handled = true; }
@@ -39,11 +40,13 @@ public static class FileDragBehavior
         }), true);
         list.PreviewMouseLeftButtonUp += (_, e) =>
         {
+            if (e.Handled) return;
             if (start is not null && deferred?.DataContext is FileEntry entry) { if (clickModifiers.HasFlag(ModifierKeys.Control)) list.SelectedItems.Remove(entry); else { list.SelectedItems.Clear(); list.SelectedItems.Add(entry); } deferred.Focus(); e.Handled = true; }
             start = null; deferred = null; anchor = null; dragSources = [];
         };
         list.PreviewMouseMove += async (_, e) =>
         {
+            if (e.Handled) return;
             if (start is not { } from || e.LeftButton != MouseButtonState.Pressed || main.IsFileOperationRunning || ShellMenuBehavior.IsOpen) return;
             var now = e.GetPosition(list); if (Math.Abs(now.X - from.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(now.Y - from.Y) < SystemParameters.MinimumVerticalDragDistance) return;
             start = null; deferred = null; var paths = dragSources; dragSources = []; if (paths.Length == 0) return;

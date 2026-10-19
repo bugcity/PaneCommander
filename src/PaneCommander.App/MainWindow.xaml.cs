@@ -260,6 +260,13 @@ public partial class MainWindow : Window
         // TextBox内部のScrollViewer等にも適用。文字編集のキーを横取りしない。
         if (HasAncestor<TextBoxBase>(e.OriginalSource as DependencyObject) || HasAncestor<PasswordBox>(e.OriginalSource as DependencyObject)) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
+        if (FileDragBehavior.Ancestor<ListView>(e.OriginalSource as DependencyObject) is { } selectingList
+            && FileMarqueeSelection.Active(selectingList) is { } selection)
+        {
+            if (key == Key.Escape) selection.Finish(cancel: true);
+            e.Handled = true;
+            return;
+        }
         var modifiers = Keyboard.Modifiers;
         if (HandleFileClipboardKey(key, modifiers, e.OriginalSource as DependencyObject)) { e.Handled=true; return; }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key is Key.Left or Key.Right)

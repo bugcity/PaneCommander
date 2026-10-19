@@ -345,6 +345,7 @@ public sealed partial class WpfIntegrationTests
                 VerifyActivePaneTarget();
                 VerifyExternalDragFocusRecovery();
                 VerifyShellFolderCreation();
+                VerifyMouseSelection();
                 VerifyFilterUi(application);
                 VerifyKeyboardAndHiddenUi();
                 VerifyFunctionAndClipboardKeys();

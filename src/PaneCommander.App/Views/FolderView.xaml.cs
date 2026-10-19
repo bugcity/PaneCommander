@@ -22,6 +22,7 @@ public partial class FolderView : UserControl
     public FolderView()
     {
         InitializeComponent();
+        FileMarqueeSelection.Attach(Files, () => main is { IsFileOperationRunning: false });
         _ = new FileListFilter(Files, () => DataContext as TabState);
         columns=((GridView)Files.View).Columns.Zip(new[]{"Name","Kind","Size","FileAge","LastWriteTime"}).ToDictionary(p=>p.Second,p=>p.First);
         Loaded += (_, _) => { main = Window.GetWindow(this)?.DataContext as MainViewModel; if (main is not null) PropertyChangedEventManager.AddHandler(main, SettingsChanged, ""); ResizeColumns(); };
