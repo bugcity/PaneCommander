@@ -29,6 +29,8 @@ public partial class App : Application
         var window = new MainWindow { DataContext = viewModel };
         MainWindow = window;
         window.Show();
+        var folderMonitor = new WorkspaceDirectoryMonitor(window, viewModel, new FolderWatchService(), logger);
+        window.Closed += (_, _) => folderMonitor.Dispose();
         if (options.DiagnosticsDirectory is not null)
             await StartupDiagnostics.RunAsync(window, viewModel, options.DiagnosticsDirectory, modeBeforeWindow, options.VisitTabs, diagnosticsLifetime.Token);
     }

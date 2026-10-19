@@ -27,6 +27,10 @@ public partial class FolderView : UserControl
         Loaded += (_, _) => { main = Window.GetWindow(this)?.DataContext as MainViewModel; if (main is not null) PropertyChangedEventManager.AddHandler(main, SettingsChanged, ""); ResizeColumns(); };
         Unloaded += (_, _) => ReleaseResources();
         Files.SizeChanged += (_, _) => ResizeColumns();
+        Files.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, e) =>
+        {
+            if (e.ViewportWidthChange != 0) ResizeColumns();
+        }));
         DataContextChanged += (_, _) => { if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); tab = DataContext as TabState; if (tab is not null) PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); ApplySort(); };
         Loaded += (_, _) => { if (tab is not null) { PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); } ApplySort(); RefreshDatesAfterLayout(); };
         Files.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(SortClick));
@@ -93,13 +97,35 @@ public partial class FolderView : UserControl
         for(var i=0;i<layout.Columns.Length;i++) { var column=columns[layout.Columns[i].Key]; if(view.Columns[i]!=column) {view.Columns.Remove(column);view.Columns.Insert(i,column);} }
         double Measure(string text) => new FormattedText(text,System.Globalization.CultureInfo.CurrentCulture,FlowDirection.LeftToRight,new Typeface(ThemeManager.ResolveFont(settings.FontFamily),FontStyles.Normal,FontWeights.Normal,FontStretches.Normal),settings.FontSize,Brushes.Black,VisualTreeHelper.GetDpi(this).PixelsPerDip).WidthIncludingTrailingWhitespace+18;
         double Minimum(string key) => key switch {"Name"=>Measure("名前")+24,"Size"=>Math.Max(Measure("サイズ"),Measure("999.99 TB")),"FileAge"=>Math.Max(Measure("File Age"),Measure("999 y")),"LastWriteTime"=>Measure("0000-00-00 00:00:00"),_=>Measure("[DIR] ↗")};
-        var available=Math.Max(0,Files.ActualWidth-42);
+        var scroll = FindDescendant<ScrollViewer>(Files);
+        var viewport = scroll is { ViewportWidth: > 0 } ? scroll.ViewportWidth : Files.ActualWidth;
+        // The viewport already excludes the actual scrollbar and outer list padding.
+        // Only the row template's horizontal content padding remains to be reserved.
+        var row = FindDescendant<ListViewItem>(Files);
+        var fallbackPadding = Files.ItemContainerStyle?.Setters.OfType<Setter>()
+            .FirstOrDefault(s => s.Property == PaddingProperty)?.Value is Thickness configured ? configured : new Thickness(3, 2, 3, 2);
+        var padding = row?.Padding ?? fallbackPadding;
+        var dpi = VisualTreeHelper.GetDpi(this).DpiScaleX;
+        // GridViewRowPresenter reserves 2 DIP for the trailing dummy header.
+        const double trailingHeader = 2;
+        var available = Math.Max(0, Math.Floor((viewport - padding.Left - padding.Right - trailingHeader) * dpi) / dpi);
         var widths=AdaptiveColumns.Calculate(layout,available,Minimum);
         var ageWasShown=ShowFileAge;
         ShowModified=widths["LastWriteTime"]>0;ShowFileAge=widths["FileAge"]>0;
-        foreach(var spec in layout.Columns) columns[spec.Key].Width=widths[spec.Key];
+        foreach(var spec in layout.Columns)
+            if (columns[spec.Key].Width != widths[spec.Key]) columns[spec.Key].Width=widths[spec.Key];
         if(ageWasShown!=ShowFileAge && Window.GetWindow(this) is MainWindow window)
             foreach(var cell in window.DateCells.Where(c=>FileDragBehavior.Ancestor<FolderView>(c)==this).ToArray())cell.Refresh();
+    }
+    private static T? FindDescendant<T>(DependencyObject parent) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T result) return result;
+            if (FindDescendant<T>(child) is { } nested) return nested;
+        }
+        return null;
     }
     private PaneViewModel? PaneModel
     {

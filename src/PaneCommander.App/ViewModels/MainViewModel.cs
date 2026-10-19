@@ -3,7 +3,7 @@ using System.Collections.ObjectModel;
 
 namespace PaneCommander.App.ViewModels;
 
-public sealed class MainViewModel : ObservableObject, IDisposable
+public sealed partial class MainViewModel : ObservableObject, IDisposable
 {
     private AppearanceSettings settings;
     private readonly ISettingsStore? settingsStore;
@@ -68,18 +68,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         MoveFavoriteUp = new(_ => SelectedFavorite is { } favorite ? MoveFavoriteAsync(favorite, -1) : Task.CompletedTask, logger, _ => !savingFavorites && SelectedFavorite is { } f && favorites.IndexOf(f) > 0);
         MoveFavoriteDown = new(_ => SelectedFavorite is { } favorite ? MoveFavoriteAsync(favorite, 1) : Task.CompletedTask, logger, _ => !savingFavorites && SelectedFavorite is { } f && favorites.IndexOf(f) < favorites.Count - 1);
         ToggleFavorites = new(_ => ApplySettingsAsync(Settings with { ShowFavorites = !Settings.ShowFavorites }), logger);
-        var names = new[] { "ヘルプ", "ユーザー", "表示", "編集", "コピー", "移動", "作成", "削除", "メニュー", "終了" };
-        Functions = Enumerable.Range(1, 10).Select(number => new FunctionAction(number, names[number - 1],
-            number is 1 or 2 or 9 ? "未計画" : number == 10 ? "M2" : "M4",
-            new AsyncCommand(async _ =>
-            {
-                if(number==10) RequestClose?.Invoke();
-                else if(number==3 && RequestPreview is not null) await RequestPreview(GetSelectedPaths!().Single());
-                else if(number==4) await EditSelectedAsync();
-                else if(RequestFileOperation is not null) await RequestFileOperation(number switch{5=>FileOperationKind.Copy,6=>FileOperationKind.Move,7=>FileOperationKind.CreateDirectory,_=>FileOperationKind.Delete});
-            }, logger, _ => number==10 || number==3 && !operating && RequestPreview is not null && GetSelectedPaths?.Invoke().Length==1 && Workspace.ActivePane.SelectedTab.SelectedEntry is {IsDirectory:false}
-                || number==4 && CanEditSelected
-                || fileOperations is not null && RequestFileOperation is not null && !operating && (number==7 || (number is 5 or 6 || number==8&&DeleteCommandEnabled) && (GetSelectedPaths?.Invoke().Length??0)>0)),number is 3 or 10 || number==4 && shellEdit is not null || fileOperations is not null&&number is 5 or 6 or 7 or 8)).ToArray();
+        Functions = CreateFunctions(logger);
     }
     public Func<IntPtr>? GetShellOwner { get; set; }
     private FileEntry? SingleEditTarget()
@@ -140,7 +129,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public string WindowTitle => Settings.TitleDisplay == TitleDisplay.FullPath ? Workspace.ActivePane.SelectedTab.CurrentPath : Workspace.ActivePane.SelectedTab.Title;
     private void WorkspaceChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e) { if(e.PropertyName==nameof(WorkspaceState.ActiveSide)) {Raise(nameof(WindowTitle));NotifyFileCommands();} }
     private void PaneChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e) { if(e.PropertyName==nameof(PaneState.SelectedTab)) { TrackTitles(); Raise(nameof(WindowTitle));NotifyFileCommands(); } }
-    private void TitleChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e) { if(e.PropertyName==nameof(TabState.CurrentPath)) Raise(nameof(WindowTitle)); }
+    private void TitleChanged(object? sender,System.ComponentModel.PropertyChangedEventArgs e) { if(e.PropertyName==nameof(TabState.CurrentPath)) Raise(nameof(WindowTitle)); if(e.PropertyName is nameof(TabState.IsLoading) or nameof(TabState.SelectedEntry) or nameof(TabState.Entries)) NotifyFileCommands(); }
     private void TrackTitles()
     {
         if(titleLeft is not null) titleLeft.PropertyChanged-=TitleChanged; if(titleRight is not null) titleRight.PropertyChanged-=TitleChanged;
@@ -251,17 +240,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         Left.RequestPath = Right.RequestPath = null;
         Left.RequestListFocus = Right.RequestListFocus = null;
-        Left.RequestColumns=Right.RequestColumns=null;GetSelectedPaths=null;RequestFileOperation=null;RequestPreview=null;
+        Left.RequestColumns=Right.RequestColumns=null;GetSelectedPaths=null;RequestFileOperation=null;RequestPreview=null;RequestSameFolderOperation=null;RequestCreateFile=null;RequestContextMenu=null;
         RequestSettings = null; RequestClose = null;
         RequestFavoriteName = null;
         Workspace.PropertyChanged-=WorkspaceChanged; Workspace.Left.PropertyChanged-=PaneChanged; Workspace.Right.PropertyChanged-=PaneChanged;
         if(titleLeft is not null) titleLeft.PropertyChanged-=TitleChanged; if(titleRight is not null) titleRight.PropertyChanged-=TitleChanged;
         Workspace.Dispose();
     }
-}
-
-public sealed record FunctionAction(int Number, string Name, string Milestone, AsyncCommand Command,bool Implemented=false)
-{
-    public string Label => $"F{Number} {Name}";
-    public string Description => Number == 10 ? "アプリケーションを終了" : Implemented ? Number==6?"移動・名前変更":Number==8?"ごみ箱へ移動（完全削除はShift+Deleteで確認）":Number==7?"ディレクトリ作成":Name : Number == 6 ? "移動・名前変更（未実装）" : $"{Name}（未実装）";
 }

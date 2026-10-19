@@ -12,6 +12,12 @@ public sealed class TabState : ObservableObject, IDisposable
     private string currentPath;
     private string inputPath;
     private string status = "読み込み待ち";
+    private string watchWarning = "";
+    public string WatchWarning
+    {
+        get => watchWarning;
+        set { if (Set(ref watchWarning, value)) Raise(nameof(Status)); }
+    }
     private bool isLoading;
     private IReadOnlyList<FileEntry> entries = [];
     private FileEntry? selectedEntry;
@@ -41,12 +47,13 @@ public sealed class TabState : ObservableObject, IDisposable
     public string CurrentPath { get => currentPath; private set => Set(ref currentPath, value); }
     public string InputPath { get => inputPath; set => Set(ref inputPath, value); }
     public string Title => string.Equals(System.IO.Path.TrimEndingDirectorySeparator(CurrentPath),System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetPathRoot(CurrentPath)??""),StringComparison.OrdinalIgnoreCase) ? CurrentPath : System.IO.Path.GetFileName(CurrentPath.TrimEnd('\\', '/')) is { Length: > 0 } name ? name : CurrentPath;
-    public string Status { get => status; private set => Set(ref status, value); }
+    public string Status { get => status + (watchWarning.Length == 0 ? "" : " · " + watchWarning); private set => Set(ref status, value); }
     public bool IsLoading { get => isLoading; private set => Set(ref isLoading, value); }
     public IReadOnlyList<FileEntry> Entries { get => entries; private set => Set(ref entries, value); }
     public FileEntry? SelectedEntry { get => selectedEntry; set => Set(ref selectedEntry, value); }
     public bool CanGoBack => historyIndex > 0;
     public bool CanGoForward => historyIndex >= 0 && historyIndex < history.Count - 1;
+    public event Action? RefreshingSnapshot;
 
     public async Task NavigateAsync(string path, NavigationKind kind = NavigationKind.Normal, string? selectPath = null)
     {
@@ -79,6 +86,7 @@ public sealed class TabState : ObservableObject, IDisposable
             }
             CurrentPath = folder.Path;
             InputPath = folder.Path;
+            if (kind == NavigationKind.Refresh) RefreshingSnapshot?.Invoke();
             Entries = folder.Entries;
             hasSnapshot = true;
             NavigationSucceeded = true;

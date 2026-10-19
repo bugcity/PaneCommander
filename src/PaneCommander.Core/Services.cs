@@ -25,6 +25,11 @@ public interface IErrorLogger
     void Log(string context, Exception error);
 }
 
+public interface IFolderWatchService
+{
+    IDisposable Watch(string path, Action changed, Action<Exception> failed);
+}
+
 public enum PaneSide { Left, Right }
 
 public enum NavigationKind { Normal, Back, Forward, Refresh }

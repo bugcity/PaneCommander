@@ -46,13 +46,19 @@ public partial class MainWindow : Window
         Model.Left.RequestColumns=Model.Right.RequestColumns=side=>{new SettingsDialog(Model,side){Owner=this}.ShowDialog();return Task.CompletedTask;};
         Model.GetSelectedPaths=()=>((Model.Workspace.Left.IsActive?LeftPane:RightPane).CurrentFileList?.SelectedItems.OfType<FileEntry>().Select(f=>f.FullPath).ToArray())??[];
         Model.GetShellOwner=()=>new System.Windows.Interop.WindowInteropHelper(this).Handle;
-        Model.RequestFileOperation=RequestFileOperationAsync;Model.RequestPreview=RequestPreviewAsync;Model.NotifyFileCommands();
+        Model.RequestFileOperation=RequestFileOperationAsync;Model.RequestPreview=RequestPreviewAsync;
+        Model.RequestSameFolderOperation=SameFolderOperationAsync;Model.RequestCreateFile=CreateFileAsync;
+        Model.RequestContextMenu=()=>ShellMenuBehavior.ShowSelectionAsync((Model.Workspace.Left.IsActive?LeftPane:RightPane).CurrentFileList!,Model.Workspace.ActivePane.SelectedTab.CurrentPath,Model);
+        Model.NotifyFileCommands();
         Closed+=(_,_)=>{Model.Left.RequestListFocus=Model.Right.RequestListFocus=null;Model.Left.RequestColumns=Model.Right.RequestColumns=null;Model.GetSelectedPaths=null;Model.GetShellOwner=null;Model.RequestFileOperation=null;Model.RequestPreview=null;};
         Model.RequestClose = Close;
         Model.RequestSettings = () => { new SettingsDialog(Model) { Owner = this }.ShowDialog(); return Task.CompletedTask; };
         Model.RequestFavoriteName = initial => { var dialog = new FavoriteNameDialog(initial) { Owner = this }; return Task.FromResult(dialog.ShowDialog() == true ? dialog.FavoriteName : null); };
         Model.PropertyChanged += ModelChanged;
         Activated += WindowActivity;
+        Activated += FunctionKeysActivated;
+        Deactivated += FunctionKeysDeactivated;
+        Closed += (_, _) => { Activated -= FunctionKeysActivated; Deactivated -= FunctionKeysDeactivated; Model.SetFunctionModifiers(ModifierKeys.None); Model.RequestSameFolderOperation=null; Model.RequestCreateFile=null; Model.RequestContextMenu=null; ClipboardOperation=null; };
         StateChanged += WindowActivity;
         Closed += (_, _) => { closed = true; Model.PropertyChanged -= ModelChanged; Activated -= WindowActivity; StateChanged -= WindowActivity; LeftPane.ReleaseResources(); RightPane.ReleaseResources(); DateCells.Clear(); Model.Left.RequestPath = Model.Right.RequestPath = null; Model.RequestSettings = null; Model.RequestClose = null; Model.RequestFavoriteName = null; };
         await Model.Workspace.InitializeAsync();
@@ -226,17 +232,13 @@ public partial class MainWindow : Window
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
+        UpdateFunctionModifiers(Keyboard.Modifiers);
         if (ShellMenuBehavior.IsOpen) return;
         // TextBox内部のScrollViewer等にも適用。文字編集のキーを横取りしない。
         if (HasAncestor<TextBoxBase>(e.OriginalSource as DependencyObject) || HasAncestor<PasswordBox>(e.OriginalSource as DependencyObject)) return;
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
         var modifiers = Keyboard.Modifiers;
-        if (modifiers == ModifierKeys.Shift && key == Key.F7)
-        {
-            e.Handled = true;
-            if (!Model.IsFileOperationRunning) _ = CreateFileAsync();
-            return;
-        }
+        if (HandleFileClipboardKey(key, modifiers, e.OriginalSource as DependencyObject)) { e.Handled=true; return; }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key is Key.Left or Key.Right)
         {
             Model.Workspace.ActivePane.MoveSelectedTab(key == Key.Left ? -1 : 1);
@@ -250,11 +252,6 @@ public partial class MainWindow : Window
             (Model.Workspace.Left.IsActive ? LeftPane : RightPane).FocusList();
             e.Handled = true;
             return;
-        }
-        if(modifiers==ModifierKeys.Shift && key is Key.F5 or Key.F6 && HasAncestor<ListView>(e.OriginalSource as DependencyObject)
-            && HasAncestor<FolderView>(e.OriginalSource as DependencyObject))
-        {
-            e.Handled=true;_ = SameFolderOperationAsync(key==Key.F5?FileOperationKind.Copy:FileOperationKind.Move);return;
         }
         if (key == Key.Delete && modifiers is ModifierKeys.None or ModifierKeys.Shift && HasAncestor<ListView>(e.OriginalSource as DependencyObject) && HasAncestor<FolderView>(e.OriginalSource as DependencyObject))
         {
@@ -281,7 +278,7 @@ public partial class MainWindow : Window
         }
         if (modifiers == ModifierKeys.Control)
             command = key switch { Key.T => Model.Active.AddTab, Key.W => Model.Active.CloseTab, Key.R => Model.RefreshActive, Key.D => Model.AddFavorite, Key.H => Model.Active.ToggleHiddenFiles, _ => null };
-        else if (key >= Key.F1 && key <= Key.F10 && modifiers == ModifierKeys.None) command = Model.Functions[(int)key - (int)Key.F1].Command;
+        else if (key >= Key.F1 && key <= Key.F10 && modifiers is ModifierKeys.None or ModifierKeys.Shift) command = Model.Functions[(int)key - (int)Key.F1].Command;
         else if (HasAncestor<FolderView>(e.OriginalSource as DependencyObject) && HasAncestor<ListView>(e.OriginalSource as DependencyObject))
         {
             if (modifiers == ModifierKeys.Alt) command = key switch { Key.Left => Model.Active.Back, Key.Right => Model.Active.Forward, _ => null };

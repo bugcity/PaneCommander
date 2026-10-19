@@ -48,6 +48,12 @@ public static class ShellMenuBehavior
             await ShowAsync(list, directory(), list.SelectedItems.OfType<FileEntry>().ToArray(), point, main);
         };
     }
+    public static Task ShowSelectionAsync(ListView list, string directory, MainViewModel main)
+    {
+        var row = list.ItemContainerGenerator.ContainerFromItem(list.SelectedItem) as ListViewItem;
+        var point = (row as FrameworkElement ?? list).PointToScreen(new Point(16, row?.ActualHeight ?? 24));
+        return ShowAsync(list, directory, list.SelectedItems.OfType<FileEntry>().ToArray(), point, main);
+    }
     private static async Task ShowAsync(ListView list, string? directory, FileEntry[] entries, Point point, MainViewModel main)
     {
         if (IsOpen || directory is null || main.IsFileOperationRunning) return;

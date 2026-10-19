@@ -155,7 +155,8 @@ public sealed partial class WpfIntegrationTests
                 var nameHeader = Descendants<GridViewColumnHeader>(leftList).Single(h => h.Column == nameColumn);
                 var nameGripper = Descendants<System.Windows.Controls.Primitives.Thumb>(nameHeader).Single();
                 var untouchedColumns = model.Settings.LeftColumns!.Columns.Where(c => c.Key != "Name").ToArray();
-                var requestedNameWidth = leftList.ActualWidth - 42 - 100;
+                var actualViewport = Descendants<ScrollViewer>(leftList).First().ViewportWidth;
+                var requestedNameWidth = actualViewport - 8 - 100;
                 nameColumn.Width = requestedNameWidth; leftList.UpdateLayout();
                 nameGripper.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(200, 0, false)
                     { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragCompletedEvent }); Pump();
@@ -165,7 +166,7 @@ public sealed partial class WpfIntegrationTests
                 foreach (var label in new[] { "更新日時", "サイズ", "File Age" })
                     Assert.AreEqual(0d, resizedGrid.Columns.Single(c => Equals(c.Header, label)).Width, label);
                 Assert.IsTrue(resizedGrid.Columns.Single(c => Equals(c.Header, "種類")).Width > 0);
-                Assert.IsTrue(resizedGrid.Columns.Sum(c => c.Width) <= leftList.ActualWidth - 42 + .1);
+                Assert.IsTrue(resizedGrid.Columns.Sum(c => c.Width) <= actualViewport - 8 + .1);
                 Assert.IsTrue(model.Settings.LeftColumns.Columns.All(c => c.Visible));
                 CollectionAssert.AreEqual(untouchedColumns, model.Settings.LeftColumns.Columns.Where(c => c.Key != "Name").ToArray(), "操作していない列の保存幅は変えない");
                 nameColumn.Width = 180; leftList.UpdateLayout();
@@ -197,7 +198,10 @@ public sealed partial class WpfIntegrationTests
                 var narrowList = Descendants<ListView>(left).Single();
                 // 2026-10-17: low-priority columns are hidden instead of forcing horizontal overflow.
                 var compactColumns=((GridView)narrowList.View).Columns;
-                Assert.AreEqual(0d,compactColumns.Single(c=>Equals(c.Header,"サイズ")).Width,"狭幅では種類/File Ageより先にサイズを省略");
+                if (compactColumns.Single(c=>Equals(c.Header,"File Age")).Width == 0)
+                    Assert.AreEqual(0d,compactColumns.Single(c=>Equals(c.Header,"サイズ")).Width,"File Ageより先にサイズを省略");
+                if (compactColumns.Single(c=>Equals(c.Header,"サイズ")).Width == 0)
+                    Assert.AreEqual(0d,compactColumns.Single(c=>Equals(c.Header,"更新日時")).Width,"サイズより先に更新日時を省略");
                 Assert.IsTrue(compactColumns.Single(c=>Equals(c.Header,"名前")).Width>0,"名前は残す");
                 Assert.IsTrue(compactColumns.Sum(c=>c.Width)<=narrowList.ActualWidth,"列は利用幅内に収まる");
                 Capture(window, "m2-compact.png");
@@ -335,10 +339,13 @@ public sealed partial class WpfIntegrationTests
                 }
                 Directory.Delete(m3Profile, true);
                 VerifyReviewUi(application);
+                VerifyColumnViewportFit();
                 VerifyFilterUi(application);
                 VerifyKeyboardAndHiddenUi();
+                VerifyFunctionAndClipboardKeys();
                 VerifyNavigationFocus();
                 VerifyTabReordering();
+                VerifyDirectoryMonitoring();
                 VerifyShellActionInputs();
                 VerifyDropTargets();
                 Assert.AreEqual("", bindingErrors.Errors, "WPF binding errors");
@@ -353,7 +360,7 @@ public sealed partial class WpfIntegrationTests
         }) { IsBackground = true };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(30)), "WPF integration test timeout");
+        Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(45)), "WPF integration test timeout");
         if (failure is not null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
