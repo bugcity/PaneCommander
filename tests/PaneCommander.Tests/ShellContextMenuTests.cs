@@ -12,6 +12,36 @@ namespace PaneCommander.Tests;
 public sealed class ShellContextMenuTests
 {
     [TestMethod]
+    public void BackgroundNewFolderHasCanonicalVerb() => Sta(() =>
+    {
+        var root = Root();
+        try
+        {
+            using var menu = new ShellContextMenu(root, [], IntPtr.Zero);
+            var handle = (IntPtr)typeof(ShellContextMenu).GetField("menu", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(menu)!;
+            void Initialize(IntPtr current, int depth)
+            {
+                if (depth > 3) return;
+                for (var i = 0; i < GetMenuItemCount(current); i++)
+                {
+                    var child = GetSubMenu(current, i);
+                    if (child == IntPtr.Zero) continue;
+                    menu.Forward(0x117, child, (IntPtr)i, out _);
+                    Initialize(child, depth + 1);
+                }
+            }
+            Initialize(handle, 0);
+            var commands = menu.Commands();
+            var output = Path.Combine(Repository(), "docs/verification/shell-new-folder-20261019");
+            Directory.CreateDirectory(output);
+            File.WriteAllText(Path.Combine(output, "background-commands.json"), JsonSerializer.Serialize(commands.Select(c => new { c.Id, c.Text, c.Verb }), new JsonSerializerOptions { WriteIndented = true }));
+            Assert.IsTrue(commands.Any(c => c.Verb.Equals("NewFolder", StringComparison.OrdinalIgnoreCase) && menu.IsEnabled(c.Id)),
+                "背景の新規フォルダーを表示名に依存せず識別する");
+            Assert.AreEqual(0, Directory.GetFileSystemEntries(root).Length, "メニューの照合だけでは作成しない");
+        }
+        finally { Cleanup(root); }
+    });
+    [TestMethod]
     public void NativeMenusContainShellCommandsForFilesDirectoriesMultipleAndBackground() => Sta(() =>
     {
         var root = Root();
@@ -167,5 +197,7 @@ public sealed class ShellContextMenuTests
     [DllImport("ole32.dll")]private static extern int OleSetClipboard(IntPtr data);
     [DllImport("user32.dll")]private static extern uint GetClipboardSequenceNumber();
     [DllImport("user32.dll")]private static extern IntPtr GetClipboardOwner();
+    [DllImport("user32.dll")]private static extern int GetMenuItemCount(IntPtr menu);
+    [DllImport("user32.dll")]private static extern IntPtr GetSubMenu(IntPtr menu, int index);
     [DllImport("user32.dll")]private static extern uint GetWindowThreadProcessId(IntPtr window,out uint processId);
 }

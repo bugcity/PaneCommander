@@ -106,9 +106,14 @@ public partial class MainWindow : Window
     }
     private void Favorites_KeyDown(object sender, KeyEventArgs e)
     { if (e.Key == Key.Enter && Model.SelectedFavorite is { } favorite) { Model.OpenFavorite.Execute(favorite); e.Handled = true; } }
-    private async Task RequestFileOperationAsync(FileOperationKind kind)
+    private Task RequestFileOperationAsync(FileOperationKind kind)
     {
-        if (ShellMenuBehavior.IsOpen) return;
+        if (ShellMenuBehavior.IsOpen) return Task.CompletedTask;
+        return RequestFileOperationCoreAsync(kind);
+    }
+    internal Task CreateDirectoryFromShellAsync(string directory) => RequestFileOperationCoreAsync(FileOperationKind.CreateDirectory, directory);
+    private async Task RequestFileOperationCoreAsync(FileOperationKind kind, string? creationDirectory = null)
+    {
         try
         {
             var sources=Model.GetSelectedPaths?.Invoke()??[];
@@ -116,9 +121,9 @@ public partial class MainWindow : Window
             var creationTab = Model.Workspace.ActivePane.SelectedTab;
             var dialog=new FileOperationDialog(kind,sources.Length,kind==FileOperationKind.CreateDirectory?"新しいフォルダ":kind==FileOperationKind.CreateFile?"新しいファイル.txt":Model.Workspace.OppositePane.SelectedTab.CurrentPath,sources.Length==1?System.IO.Path.GetDirectoryName(sources[0]):null){Owner=this};
             if(dialog.ShowDialog()!=true)return;
-            var request=kind is FileOperationKind.CreateDirectory or FileOperationKind.CreateFile?new FileOperationRequest(kind,[],creationTab.CurrentPath,dialog.Destination):new FileOperationRequest(kind,sources,dialog.Destination,dialog.NewName);
+            var request=kind is FileOperationKind.CreateDirectory or FileOperationKind.CreateFile?new FileOperationRequest(kind,[],creationDirectory ?? creationTab.CurrentPath,dialog.Destination):new FileOperationRequest(kind,sources,dialog.Destination,dialog.NewName);
             var result = await Model.ExecuteFileOperationAsync(request,new System.Windows.Interop.WindowInteropHelper(this).Handle);
-            if (kind == FileOperationKind.CreateFile && !result.Aborted && creationTab.CurrentPath == request.Destination)
+            if (kind is FileOperationKind.CreateFile or FileOperationKind.CreateDirectory && !result.Aborted && creationTab.CurrentPath == request.Destination)
             {
                 var created = System.IO.Path.Combine(request.Destination!, request.NewName!);
                 creationTab.SelectedEntry = creationTab.Entries.FirstOrDefault(entry => StringComparer.OrdinalIgnoreCase.Equals(entry.FullPath, created));

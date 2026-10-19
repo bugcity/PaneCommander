@@ -77,6 +77,13 @@ public static class ShellMenuBehavior
             if (command == 0) return;
             var verb = menu.Verb(command).ToLowerInvariant();
             if (!Allowed(verb)) throw new IOException("このリンクに対するShellコマンドは安全性未検証のため無効です。");
+            // The transient Shell view is hidden and cannot host Explorer's inline
+            // name editor. Use the same visible name-entry flow as F7 instead.
+            if (paths.Length == 0 && verb == "newfolder" && window is MainWindow mainWindow)
+            {
+                await mainWindow.CreateDirectoryFromShellAsync(directory);
+                return;
+            }
             string[]? clipboard = null;
             uint clipboardSequence = 0;
             if (verb is "paste" or "pastelink") { clipboardSequence = GetClipboardSequenceNumber(); clipboard = Clipboard.ContainsFileDropList() ? Clipboard.GetFileDropList().Cast<string>().ToArray() : null; }
