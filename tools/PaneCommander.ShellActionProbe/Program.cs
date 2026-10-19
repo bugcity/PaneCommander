@@ -14,7 +14,7 @@ public static class Program
         var executable = Environment.ProcessPath!;
         var receipt = Path.ChangeExtension(executable, ".launch.json");
         File.WriteAllText(receipt+".tmp", JsonSerializer.Serialize(new
-        { Executable=executable, Arguments=args, Pid=Environment.ProcessId, Timestamp=DateTimeOffset.UtcNow }));
+        { Executable=executable, Arguments=args, WorkingDirectory=Environment.CurrentDirectory, Pid=Environment.ProcessId, Timestamp=DateTimeOffset.UtcNow }));
         File.Move(receipt+".tmp", receipt, overwrite:true);
         if (Environment.GetEnvironmentVariable("PANECOMMANDER_SHELL_PROBE_UI") != "1") return;
         new Application().Run(new Window

@@ -62,11 +62,14 @@ public sealed class ShellActionTests
         try
         {
             var invocations = new List<ProcessStartInfo>(); var service = new FileSystemService(invocations.Add);
+            var parentDirectory = Environment.CurrentDirectory;
             foreach (var extension in new[] { ".txt", ".exe", ".ps1", ".bat", ".cmd", ".unknown" })
             {
                 var path = Path.Combine(root, "日本語 & 空白" + extension); await File.WriteAllTextAsync(path, "inert fixture");
                 await service.OpenFileAsync(new(path, Path.GetFileName(path), false, 13, null), default);
                 var info = invocations.Last(); Assert.AreEqual(path, info.FileName); Assert.IsTrue(info.UseShellExecute);
+                Assert.AreEqual(root, info.WorkingDirectory);
+                Assert.AreEqual(parentDirectory, Environment.CurrentDirectory, "親プロセスのカレントディレクトリを変更しない");
                 Assert.AreEqual("", info.Verb); Assert.AreEqual("", info.Arguments); Assert.AreEqual(0, info.ArgumentList.Count);
             }
             Assert.AreEqual(6, invocations.Count);
@@ -114,12 +117,13 @@ public sealed class ShellActionTests
     [TestMethod]
     public async Task RealShellOpenStartsOnlyTheHarmlessProbeWithExactExecutablePath()
     {
-        var root = Path.Combine(Path.GetTempPath(), "PaneCommander-shell-probe-"+Guid.NewGuid()); Directory.CreateDirectory(root);
+        var root = Path.Combine(Path.GetTempPath(), "PaneCommander-shell-probe-日本語 & 空白-"+Guid.NewGuid()); Directory.CreateDirectory(root);
         try
         {
             foreach(var file in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory,"ShellProbe"))) File.Copy(file,Path.Combine(root,Path.GetFileName(file)));
             var path = Path.Combine(root,"日本語 & 空白.exe");
             File.Copy(Path.Combine(root,"PaneCommander.ShellActionProbe.exe"),path);
+            var parentDirectory = Environment.CurrentDirectory;
             await new FileSystemService().OpenFileAsync(new(path,Path.GetFileName(path),false,null,null),default);
             var receipt=Path.ChangeExtension(path,".launch.json");
             var deadline=DateTime.UtcNow.AddSeconds(8);
@@ -127,6 +131,8 @@ public sealed class ShellActionTests
             Assert.IsTrue(File.Exists(receipt),"Actual child process receipt, not just an internal call");
             using var document=JsonDocument.Parse(await File.ReadAllTextAsync(receipt));
             Assert.AreEqual(path,document.RootElement.GetProperty("Executable").GetString());
+            Assert.AreEqual(root,document.RootElement.GetProperty("WorkingDirectory").GetString(), "実際の子プロセスのカレントディレクトリ");
+            Assert.AreEqual(parentDirectory,Environment.CurrentDirectory);
             Assert.AreEqual(0,document.RootElement.GetProperty("Arguments").GetArrayLength());
             try
             {

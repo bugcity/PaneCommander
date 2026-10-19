@@ -237,6 +237,13 @@ public partial class MainWindow : Window
             if (!Model.IsFileOperationRunning) _ = CreateFileAsync();
             return;
         }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key is Key.Left or Key.Right)
+        {
+            Model.Workspace.ActivePane.MoveSelectedTab(key == Key.Left ? -1 : 1);
+            (Model.Workspace.Left.IsActive ? LeftPane : RightPane).FocusList();
+            e.Handled = true;
+            return;
+        }
         if (modifiers == ModifierKeys.Shift && key is Key.Left or Key.Right)
         {
             Model.Workspace.ActivePane.SelectAdjacentTab(key == Key.Left ? -1 : 1);

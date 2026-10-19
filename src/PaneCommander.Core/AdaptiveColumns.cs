@@ -9,7 +9,11 @@ public static class AdaptiveColumns
         var widths=layout.Columns.ToDictionary(c=>c.Key,c=>c.Visible?Math.Max(c.Width,minimum(c.Key)):0);
         var name=layout.Columns.Single(c=>c.Key=="Name");
         var pinned=name.Visible?"Name":new[]{"Kind","FileAge","Size","LastWriteTime"}.First(k=>widths[k]>0);
-        var reserve=Math.Min(widths[pinned],Math.Max(minimum(pinned),pinned=="Name"?120:0));
+        // A manually sized name column takes priority over optional metadata columns.
+        // Only shrink it after all lower-priority columns have been omitted.
+        var reserve=name.Visible&&!layout.NameFillsRemaining
+            ? widths["Name"]
+            : Math.Min(widths[pinned],Math.Max(minimum(pinned),pinned=="Name"?120:0));
         widths[pinned]=reserve;
         foreach(var key in new[]{"LastWriteTime","Size","FileAge","Kind"})
         {

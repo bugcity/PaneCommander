@@ -90,6 +90,7 @@ public sealed class UncTests
             Assert.AreEqual(root, snapshot.Path); Assert.AreEqual(1, snapshot.Entries.Count);
             Assert.AreEqual("日本語 空白.txt", snapshot.Entries[0].Name);
             await files.OpenFileAsync(snapshot.Entries[0], default); Assert.AreEqual(file, opened!.FileName);
+            Assert.AreEqual(root, opened.WorkingDirectory);
             Assert.AreEqual("PaneCommander UNC fixture", await TextPreviewReader.ReadAsync(file));
             using var tab = new TabState(root, files, new FakeLogger());
             await tab.RefreshAsync(); Assert.IsTrue(tab.NavigationSucceeded);

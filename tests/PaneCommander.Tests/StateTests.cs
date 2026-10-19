@@ -212,6 +212,41 @@ public sealed class StateTests
     }
 
     [TestMethod]
+    public async Task ReorderingTabsPreservesSelectionHistoryAndCapturedOrder()
+    {
+        using var workspace = Create();
+        var pane = workspace.Left;
+        var first = pane.SelectedTab;
+        await first.NavigateAsync(Path.Combine(Home, "first"));
+        first.SelectedEntry = first.Entries[0];
+        var second = pane.AddTab();
+        await second.NavigateAsync(Path.Combine(Home, "second"));
+        var third = pane.AddTab();
+        await third.NavigateAsync(Path.Combine(Home, "third"));
+        var selectedEntry = third.Entries[0]; third.SelectedEntry = selectedEntry;
+        var history = third.CanGoBack;
+        Assert.IsTrue(pane.MoveSelectedTab(-1));
+        CollectionAssert.AreEqual(new[] { first, third, second }, pane.Tabs.ToArray());
+        Assert.AreSame(third, pane.SelectedTab);
+        Assert.AreSame(selectedEntry, third.SelectedEntry);
+        Assert.AreEqual(history, third.CanGoBack);
+        Assert.IsTrue(pane.MoveSelectedTab(-1));
+        Assert.IsFalse(pane.MoveSelectedTab(-1), "端では並べ替えを循環させない");
+        Assert.IsTrue(pane.MoveTab(first, 2));
+        CollectionAssert.AreEqual(new[] { third, second, first }, pane.Tabs.ToArray());
+        Assert.AreSame(third, pane.SelectedTab);
+        Assert.IsFalse(pane.MoveTab(workspace.Right.SelectedTab, 0));
+        Assert.IsFalse(pane.MoveTab(third, 3));
+        var snapshot = pane.Capture();
+        using var restored = new PaneState(PaneSide.Left, Home, new FakeFileSystem(), new FakeLogger());
+        restored.Restore(snapshot);
+        CollectionAssert.AreEqual(pane.Tabs.Select(t => t.CurrentPath).ToArray(), restored.Tabs.Select(t => t.CurrentPath).ToArray());
+        Assert.AreEqual(third.CurrentPath, restored.SelectedTab.CurrentPath);
+        Assert.IsTrue(restored.MoveTab(restored.SelectedTab, 2));
+        Assert.IsFalse(restored.MoveSelectedTab(1));
+        Assert.AreEqual(1, workspace.Right.Tabs.Count);
+    }
+    [TestMethod]
     public async Task UpUsesParentAndStopsAtRoot()
     {
         using var workspace = Create();

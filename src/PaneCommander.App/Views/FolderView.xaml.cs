@@ -30,16 +30,25 @@ public partial class FolderView : UserControl
         DataContextChanged += (_, _) => { if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); tab = DataContext as TabState; if (tab is not null) PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); ApplySort(); };
         Loaded += (_, _) => { if (tab is not null) { PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); } ApplySort(); RefreshDatesAfterLayout(); };
         Files.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(SortClick));
-        Files.AddHandler(System.Windows.Controls.Primitives.Thumb.DragCompletedEvent, new System.Windows.Controls.Primitives.DragCompletedEventHandler(ColumnResizeCompleted));
+        // GridViewColumnHeader handles the gripper's routed event before it reaches Files.
+        Files.AddHandler(System.Windows.Controls.Primitives.Thumb.DragCompletedEvent, new System.Windows.Controls.Primitives.DragCompletedEventHandler(ColumnResizeCompleted), handledEventsToo: true);
         Files.SelectionChanged+=(_,_)=>main?.NotifyFileCommands();
         Loaded+=(_,_)=>{if(!dragAttached&&main is not null&&tab is not null){FileDragBehavior.Attach(Files,()=>tab!,main);ShellMenuBehavior.Attach(Files,()=>tab?.CurrentPath,main);dragAttached=true;}};
     }
     private async void ColumnResizeCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs args)
     {
-        if (args.Canceled || main is null || Files.View is not GridView view) return;
-        if(FileDragBehavior.Ancestor<System.Windows.Controls.Primitives.ScrollBar>(args.OriginalSource as DependencyObject) is not null)return;
+        if (args.Canceled || main is null || Files.View is not GridView) return;
+        if (FileDragBehavior.Ancestor<GridViewColumnHeader>(args.OriginalSource as DependencyObject)?.Column is not { } resizedColumn) return;
+        var key = columns.FirstOrDefault(pair => ReferenceEquals(pair.Value, resizedColumn)).Key;
+        if (key is null) return;
         var model = main; var settings=model.Settings; var side=PaneModel?.State.Side??PaneSide.Left;
-        var layout=settings.ColumnsFor(side);var nameDrag=FileDragBehavior.Ancestor<GridViewColumnHeader>(args.OriginalSource as DependencyObject)?.Column==columns["Name"]; var next=layout with {NameFillsRemaining=layout.NameFillsRemaining&&!nameDrag,Columns=layout.Columns.Select(c=>c with {Width=c.Visible&&columns[c.Key].ActualWidth>0?Math.Clamp(columns[c.Key].ActualWidth,24,4000):c.Width}).ToArray()};
+        var layout = settings.ColumnsFor(side);
+        var next = layout with
+        {
+            NameFillsRemaining = layout.NameFillsRemaining && key != "Name",
+            Columns = layout.Columns.Select(c => c.Key == key
+                ? c with { Width = Math.Clamp(resizedColumn.ActualWidth, 24, 4000) } : c).ToArray()
+        };
         try { await model.ApplySettingsAsync(side==PaneSide.Left ? settings with {LeftColumns=next} : settings with {RightColumns=next}); }
         catch (Exception ex) when (ex is ArgumentException or System.IO.IOException or UnauthorizedAccessException)
         { MessageBox.Show(Window.GetWindow(this), "列幅を保存できません: " + ex.Message, "表示設定", MessageBoxButton.OK, MessageBoxImage.Error); }

@@ -55,7 +55,7 @@ public sealed class FileSystemService : IFileSystemService
         cancellationToken.ThrowIfCancellationRequested();
         var path = ValidatePath(entry.FullPath, cancellationToken);
         if (!File.Exists(path)) throw new FileNotFoundException("ファイルが見つかりません。", path);
-        launch(new ProcessStartInfo(path) { UseShellExecute = true });
+        launch(new ProcessStartInfo(path) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(path)! });
     }, cancellationToken);
 
     // Pure syntax validation; it does not contact the server or change credentials.

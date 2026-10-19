@@ -145,9 +145,35 @@ public sealed partial class WpfIntegrationTests
                 Assert.IsTrue(leftList.ActualHeight > 550, "一覧領域を拡大");
                 var originalWeight = model.Settings.ColumnsFor(PaneSide.Left).Columns[2].Width;
                 ((GridView)Descendants<ListView>(left).Single().View).Columns[2].Width *= 1.3;
-                Descendants<ListView>(left).Single().RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(40, 0, false) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragCompletedEvent });
+                leftList.UpdateLayout();
+                var sizeHeader = Descendants<GridViewColumnHeader>(leftList).Single(h => Equals(h.Column?.Header, "サイズ"));
+                Descendants<System.Windows.Controls.Primitives.Thumb>(sizeHeader).Single().RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(40, 0, false) { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragCompletedEvent });
                 Pump();
                 Assert.AreNotEqual(originalWeight,model.Settings.LeftColumns!.Columns.Single(c=>c.Key=="Size").Width,"列幅を所有する側の設定へ保存");Assert.IsNull(model.Settings.RightColumns,"反対側の設定を変更しない");
+                var resizedGrid = (GridView)leftList.View;
+                var nameColumn = resizedGrid.Columns.Single(c => Equals(c.Header, "名前"));
+                var nameHeader = Descendants<GridViewColumnHeader>(leftList).Single(h => h.Column == nameColumn);
+                var nameGripper = Descendants<System.Windows.Controls.Primitives.Thumb>(nameHeader).Single();
+                var untouchedColumns = model.Settings.LeftColumns!.Columns.Where(c => c.Key != "Name").ToArray();
+                var requestedNameWidth = leftList.ActualWidth - 42 - 100;
+                nameColumn.Width = requestedNameWidth; leftList.UpdateLayout();
+                nameGripper.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(200, 0, false)
+                    { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragCompletedEvent }); Pump();
+                Assert.IsFalse(model.Settings.LeftColumns!.NameFillsRemaining);
+                Assert.AreEqual(requestedNameWidth, nameColumn.Width, .1, "名前列の手動拡大を他列より優先する");
+                Assert.AreEqual(requestedNameWidth, model.Settings.LeftColumns.Columns.Single(c => c.Key == "Name").Width, .1);
+                foreach (var label in new[] { "更新日時", "サイズ", "File Age" })
+                    Assert.AreEqual(0d, resizedGrid.Columns.Single(c => Equals(c.Header, label)).Width, label);
+                Assert.IsTrue(resizedGrid.Columns.Single(c => Equals(c.Header, "種類")).Width > 0);
+                Assert.IsTrue(resizedGrid.Columns.Sum(c => c.Width) <= leftList.ActualWidth - 42 + .1);
+                Assert.IsTrue(model.Settings.LeftColumns.Columns.All(c => c.Visible));
+                CollectionAssert.AreEqual(untouchedColumns, model.Settings.LeftColumns.Columns.Where(c => c.Key != "Name").ToArray(), "操作していない列の保存幅は変えない");
+                nameColumn.Width = 180; leftList.UpdateLayout();
+                nameGripper.RaiseEvent(new System.Windows.Controls.Primitives.DragCompletedEventArgs(-200, 0, false)
+                    { RoutedEvent = System.Windows.Controls.Primitives.Thumb.DragCompletedEvent }); Pump();
+                Assert.IsTrue(resizedGrid.Columns.Single(c => Equals(c.Header, "File Age")).Width > 0, "名前列を狭めると省略列が戻る");
+                Assert.IsTrue(resizedGrid.Columns.Single(c => Equals(c.Header, "サイズ")).Width > 0);
+                Assert.IsNull(model.Settings.RightColumns);
                 model.ApplySettingsAsync(AppearanceSettings.Light() with { FontSize = 16, ShowKind = false }).GetAwaiter().GetResult();
                 Pump();
                 Assert.AreEqual(16d, window.FontSize);
@@ -312,6 +338,7 @@ public sealed partial class WpfIntegrationTests
                 VerifyFilterUi(application);
                 VerifyKeyboardAndHiddenUi();
                 VerifyNavigationFocus();
+                VerifyTabReordering();
                 VerifyShellActionInputs();
                 VerifyDropTargets();
                 Assert.AreEqual("", bindingErrors.Errors, "WPF binding errors");

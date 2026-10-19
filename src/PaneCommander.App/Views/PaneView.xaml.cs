@@ -8,9 +8,8 @@ public partial class PaneView : UserControl
 {
     public PaneView()
     {
-        InitializeComponent();Point? start=null;PaneCommander.Core.TabState? dragged=null;
-        Tabs.PreviewMouseLeftButtonDown+=(_,e)=>{dragged=null;start=null;if(FileDragBehavior.Ancestor<Button>(e.OriginalSource as DependencyObject) is not null)return;if(FileDragBehavior.Ancestor<TabItem>(e.OriginalSource as DependencyObject)?.DataContext is PaneCommander.Core.TabState tab){dragged=tab;start=e.GetPosition(Tabs);}};
-        Tabs.PreviewMouseMove+=(_,e)=>{if(start is not {} from||dragged is null||e.LeftButton!=System.Windows.Input.MouseButtonState.Pressed)return;var now=e.GetPosition(Tabs);if(Math.Abs(now.X-from.X)<SystemParameters.MinimumHorizontalDragDistance&&Math.Abs(now.Y-from.Y)<SystemParameters.MinimumVerticalDragDistance)return;var payload=new FavoriteTabPayload(dragged.Title,dragged.CurrentPath);start=null;dragged=null;var data=new DataObject();data.SetData(FileDragBehavior.FavoriteFormat,payload);_=DragDrop.DoDragDrop(Tabs,data,DragDropEffects.Link);};
+        InitializeComponent();
+        AttachTabReordering();
     }
     public ListView? CurrentFileList=>FindList(this);
     private void DisplayOptions_Click(object sender, RoutedEventArgs e) => DisplayOptionsPopup.IsOpen = true;

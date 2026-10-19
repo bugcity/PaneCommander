@@ -42,6 +42,18 @@ public sealed class PaneState : ObservableObject, IDisposable
         if (direction is not (-1 or 1)) throw new ArgumentOutOfRangeException(nameof(direction));
         SelectedTab = tabs[(tabs.IndexOf(selectedTab) + direction + tabs.Count) % tabs.Count];
     }
+    public bool MoveTab(TabState tab, int targetIndex)
+    {
+        var sourceIndex = tabs.IndexOf(tab);
+        if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= tabs.Count || sourceIndex == targetIndex) return false;
+        tabs.Move(sourceIndex, targetIndex);
+        return true;
+    }
+    public bool MoveSelectedTab(int direction)
+    {
+        if (direction is not (-1 or 1)) throw new ArgumentOutOfRangeException(nameof(direction));
+        return MoveTab(selectedTab, tabs.IndexOf(selectedTab) + direction);
+    }
     public TabState AddTab()
     {
         var tab = new TabState(SelectedTab.CurrentPath, fileSystem, logger) { ShowHiddenFiles = SelectedTab.ShowHiddenFiles, ShowDotFiles = SelectedTab.ShowDotFiles };
