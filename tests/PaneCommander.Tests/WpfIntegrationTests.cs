@@ -340,6 +340,7 @@ public sealed partial class WpfIntegrationTests
                 Directory.Delete(m3Profile, true);
                 VerifyReviewUi(application);
                 VerifyColumnViewportFit();
+                VerifyTabSortRestoration();
                 VerifyFilterUi(application);
                 VerifyKeyboardAndHiddenUi();
                 VerifyFunctionAndClipboardKeys();

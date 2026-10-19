@@ -34,7 +34,23 @@
         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
         <DockPanel Margin="10,0,12,0" VerticalAlignment="Center">
           <Image Source="{Binding Icon,RelativeSource={RelativeSource AncestorType=Window}}" Width="16" Height="16" Margin="0,0,8,0" />
-          <TextBlock Text="{Binding WindowTitle}" Foreground="{DynamicResource TitleForegroundBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition>
+                <ColumnDefinition.Style>
+                  <Style TargetType="ColumnDefinition">
+                    <Setter Property="Width" Value="2*" />
+                    <Style.Triggers><DataTrigger Binding="{Binding OperationStatus}" Value=""><Setter Property="Width" Value="0" /></DataTrigger></Style.Triggers>
+                  </Style>
+                </ColumnDefinition.Style>
+              </ColumnDefinition>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding WindowTitle}" ToolTip="{Binding WindowTitle}" Foreground="{DynamicResource TitleForegroundBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <TextBlock x:Name="TitleOperationStatus" Grid.Column="1" Text="{Binding OperationStatus}" ToolTip="{Binding OperationStatus}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="12,0,0,0" Foreground="{DynamicResource TitleForegroundBrush}" Opacity="0.8" WindowChrome.IsHitTestVisibleInChrome="True">
+              <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding OperationStatus}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+            </TextBlock>
+          </Grid>
         </DockPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Margin="0,0,12,0">
           <Button Content="お気に入り" Command="{Binding ToggleFavorites}" ToolTip="サイドバーの表示を切替" />
@@ -60,7 +76,6 @@
     <StackPanel>
     <DockPanel>
       <TextBlock DockPanel.Dock="Right" Text="描画方式の反映には再起動が必要です" Foreground="#FFC777" VerticalAlignment="Center" Visibility="{Binding RenderingRestartRequired, Converter={StaticResource BoolVisibility}}" />
-      <TextBlock Text="{Binding OperationStatus}" ToolTip="{Binding OperationStatus}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="5,0" Foreground="{DynamicResource MutedBrush}"><TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding OperationStatus}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
     </DockPanel>
     <TextBlock Text="{Binding StartupWarning}" TextWrapping="Wrap" Foreground="#FFC777" Margin="5,0">
       <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding StartupWarning}" Value=""><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>

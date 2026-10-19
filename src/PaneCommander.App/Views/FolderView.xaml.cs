@@ -27,6 +27,10 @@ public partial class FolderView : UserControl
         Loaded += (_, _) => { main = Window.GetWindow(this)?.DataContext as MainViewModel; if (main is not null) PropertyChangedEventManager.AddHandler(main, SettingsChanged, ""); ResizeColumns(); };
         Unloaded += (_, _) => ReleaseResources();
         Files.SizeChanged += (_, _) => ResizeColumns();
+        var itemsSourceDescriptor = DependencyPropertyDescriptor.FromProperty(ItemsControl.ItemsSourceProperty, typeof(ListView));
+        EventHandler itemsSourceChanged = (_, _) => ApplySort();
+        Loaded += (_, _) => itemsSourceDescriptor.AddValueChanged(Files, itemsSourceChanged);
+        Unloaded += (_, _) => itemsSourceDescriptor.RemoveValueChanged(Files, itemsSourceChanged);
         Files.AddHandler(ScrollViewer.ScrollChangedEvent, new ScrollChangedEventHandler((_, e) =>
         {
             if (e.ViewportWidthChange != 0) ResizeColumns();
@@ -83,7 +87,9 @@ public partial class FolderView : UserControl
     }
     private void ApplySort()
     {
-        if (tab is null || Files.ItemsSource is null || Dispatcher.HasShutdownStarted) return;
+        // DataContext and ItemsSource bindings can change in either order on tab reuse.
+        // Never apply the next tab's sort to the previous tab's cached collection view.
+        if (tab is null || Files.ItemsSource is null || !ReferenceEquals(Files.ItemsSource, tab.Entries) || Dispatcher.HasShutdownStarted) return;
         var view = System.Windows.Data.CollectionViewSource.GetDefaultView(Files.ItemsSource);
         if (view is null) return;
         using (view.DeferRefresh()) { view.SortDescriptions.Clear(); view.SortDescriptions.Add(new(nameof(FileEntry.IsDirectory), System.ComponentModel.ListSortDirection.Descending)); view.SortDescriptions.Add(new(tab.SortProperty == "FileAge" ? nameof(FileEntry.LastWriteTime) : tab.SortProperty, (tab.SortDescending ^ (tab.SortProperty == "FileAge")) ? System.ComponentModel.ListSortDirection.Descending : System.ComponentModel.ListSortDirection.Ascending)); }
