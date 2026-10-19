@@ -65,7 +65,7 @@ public sealed partial class WpfIntegrationTests
                 CompleteWithDispatcher(FileIconProvider.GetAsync((FileEntry)leftList.Items[0])); Pump();
                 Assert.IsNotNull(Descendants<ShellFileIcon>(leftList).First().Source);
                 File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "m2-layout.json"), System.Text.Json.JsonSerializer.Serialize(new { windowWidth = window.ActualWidth, windowHeight = window.ActualHeight, listWidth = leftList.ActualWidth, listHeight = leftList.ActualHeight, listTop = leftList.TransformToAncestor((Visual)window.Content).Transform(new Point()).Y, fontSize = window.FontSize }));
-                Assert.AreEqual(window.IsActive && left.IsKeyboardFocusWithin ? 1 : 0, Descendants<TextBlock>(window).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
+                Assert.AreEqual(model.Workspace.Left.IsActive ? 1 : 0, Descendants<TextBlock>(window).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
                 var bitmap = new RenderTargetBitmap((int)window.ActualWidth, (int)window.ActualHeight, 96, 96, PixelFormats.Pbgra32);
                 var background = new DrawingVisual();
                 using (var drawing = background.RenderOpen()) drawing.DrawRectangle(window.Background, null, new Rect(0, 0, window.ActualWidth, window.ActualHeight));
@@ -93,8 +93,8 @@ public sealed partial class WpfIntegrationTests
                 { RoutedEvent = Mouse.PreviewMouseDownEvent });
                 Pump();
                 Assert.AreEqual(PaneSide.Right, model.Workspace.ActiveSide);
-                Assert.AreEqual(window.IsActive && right.IsKeyboardFocusWithin ? 1 : 0, Descendants<TextBlock>(right).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
-                Assert.AreEqual(window.IsActive && left.IsKeyboardFocusWithin ? 1 : 0, Descendants<TextBlock>(left).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
+                Assert.AreEqual(model.Workspace.Right.IsActive ? 1 : 0, Descendants<TextBlock>(right).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
+                Assert.AreEqual(model.Workspace.Left.IsActive ? 1 : 0, Descendants<TextBlock>(left).Count(t => t.Text == "ACTIVE" && t.Visibility == Visibility.Visible));
                 Assert.AreEqual(selected, originalLeftTab.SelectedEntry);
 
                 // ツールバーにフォーカスが移っても論理側を保持する。
@@ -341,6 +341,8 @@ public sealed partial class WpfIntegrationTests
                 VerifyReviewUi(application);
                 VerifyColumnViewportFit();
                 VerifyTabSortRestoration();
+                VerifyDeleteFocus();
+                VerifyActivePaneTarget();
                 VerifyFilterUi(application);
                 VerifyKeyboardAndHiddenUi();
                 VerifyFunctionAndClipboardKeys();

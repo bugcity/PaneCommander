@@ -37,6 +37,12 @@ public partial class MainWindow : Window
         else SystemCommands.MaximizeWindow(this);
     }
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    private void TitleMessage_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        if (e.ClickCount == 2) Maximize_Click(sender, e);
+        else if (e.LeftButton == MouseButtonState.Pressed) NativeTitleBar.BeginCaptionDrag(this, PointToScreen(e.GetPosition(this)));
+    }
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
         ApplyAppearance();
@@ -104,7 +110,7 @@ public partial class MainWindow : Window
         try
         {
             var sources=Model.GetSelectedPaths?.Invoke()??[];
-            if(kind==FileOperationKind.Delete){await Model.ExecuteFileOperationAsync(new(kind,sources,Recycle:true),new System.Windows.Interop.WindowInteropHelper(this).Handle);return;}
+            if(kind==FileOperationKind.Delete){await DeleteSelectedAsync(sources,true);return;}
             var creationTab = Model.Workspace.ActivePane.SelectedTab;
             var dialog=new FileOperationDialog(kind,sources.Length,kind==FileOperationKind.CreateDirectory?"新しいフォルダ":kind==FileOperationKind.CreateFile?"新しいファイル.txt":Model.Workspace.OppositePane.SelectedTab.CurrentPath,sources.Length==1?System.IO.Path.GetDirectoryName(sources[0]):null){Owner=this};
             if(dialog.ShowDialog()!=true)return;
@@ -223,12 +229,22 @@ public partial class MainWindow : Window
     }
     private void Pane_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (((PaneView)sender).DataContext is PaneViewModel pane) Model.Workspace.Activate(pane.State.Side);
+        var view = (PaneView)sender;
+        if (view.DataContext is not PaneViewModel pane) return;
+        Model.Workspace.Activate(pane.State.Side);
         var source = e.OriginalSource as DependencyObject;
         if (e.ChangedButton == MouseButton.Left && FileDragBehavior.Ancestor<ListView>(source) is { } list
             && ItemsControl.ContainerFromElement(list, source) is null
             && !HasAncestor<GridViewColumnHeader>(source) && !HasAncestor<ScrollBar>(source))
             list.Focus();
+        else if (e.ChangedButton == MouseButton.Left && !HasAncestor<ListView>(source)
+            && !HasAncestor<ButtonBase>(source) && !HasAncestor<TextBoxBase>(source) && !HasAncestor<PasswordBox>(source)
+            && !HasAncestor<TabItem>(source) && !HasAncestor<Thumb>(source) && !HasAncestor<ScrollBar>(source))
+            view.FocusList(pane.State.SelectedTab, selectFirst: true);
+    }
+    private void Pane_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (((PaneView)sender).DataContext is PaneViewModel pane) Model.Workspace.Activate(pane.State.Side);
     }
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -313,11 +329,5 @@ public partial class MainWindow : Window
             createFileDialogOpen = false;
             if (!closed) (Model.Workspace.Left.IsActive ? LeftPane : RightPane).FocusList(selectFirst: true);
         }
-    }
-    private async Task DeleteSelectedAsync(string[] selected,bool recycle)
-    {
-        try { await Model.ExecuteFileOperationAsync(new(FileOperationKind.Delete,selected,Recycle:recycle),new System.Windows.Interop.WindowInteropHelper(this).Handle); }
-        catch(Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or ArgumentException or System.Runtime.InteropServices.COMException or InvalidOperationException)
-        { MessageBox.Show(this,ex.Message,recycle?"ごみ箱へ移動":"完全削除",MessageBoxButton.OK,MessageBoxImage.Warning); }
     }
 }

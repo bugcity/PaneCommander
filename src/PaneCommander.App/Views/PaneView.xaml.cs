@@ -6,6 +6,8 @@ namespace PaneCommander.App.Views;
 
 public partial class PaneView : UserControl
 {
+    public static readonly DependencyProperty HasInputFocusProperty = DependencyProperty.Register(nameof(HasInputFocus), typeof(bool), typeof(PaneView), new PropertyMetadata(false));
+    public bool HasInputFocus { get => (bool)GetValue(HasInputFocusProperty); set => SetValue(HasInputFocusProperty, value); }
     public PaneView()
     {
         InitializeComponent();

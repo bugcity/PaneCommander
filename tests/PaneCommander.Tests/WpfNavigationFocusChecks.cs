@@ -67,7 +67,7 @@ public sealed partial class WpfIntegrationTests
             void CheckPane(bool focused)
             {
                 Assert.AreEqual(ThemeManager.Brush(focused ? model.Settings.ActiveBackground : model.Settings.InactiveBackground).ToString(), paneBorder.Background.ToString());
-                Assert.AreEqual(focused ? Visibility.Visible : Visibility.Hidden, Descendants<TextBlock>(left).Single(t => t.Text == "ACTIVE").Visibility);
+                Assert.AreEqual(model.Workspace.Left.IsActive ? Visibility.Visible : Visibility.Hidden, Descendants<TextBlock>(left).Single(t => t.Text == "ACTIVE").Visibility);
             }
             CheckPane(window.IsActive);
             Assert.AreEqual(ThemeManager.Brush(window.IsActive ? model.Settings.ActiveSelection : model.Settings.InactiveSelection).ToString(), selectedRow.Background.ToString());

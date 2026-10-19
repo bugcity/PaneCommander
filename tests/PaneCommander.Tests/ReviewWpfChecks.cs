@@ -44,6 +44,7 @@ public sealed partial class WpfIntegrationTests
             Assert.AreSame(rightList, System.Windows.Input.FocusManager.GetFocusedElement(window), "空白クリックで一覧へフォーカスを合わせる");
             Assert.AreSame(oppositeSelection, rightList.SelectedItem, "空白クリックで選択を不必要に変更しない");
             model.Workspace.Activate(PaneSide.Left);
+            left.FocusList(); Pump();
             var edit = new TextBox { Text = "abc" }; var dialog = new Window { Content = edit, Owner = window, ShowActivated = false };
             dialog.Show(); RaiseKey(edit, PresentationSource.FromVisual(dialog)!, System.Windows.Input.Key.Insert); dialog.Close();
             Assert.IsTrue(leftList.SelectedItems.Contains(selected), "別ダイアログのInsertを横取りしない");
