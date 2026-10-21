@@ -64,9 +64,19 @@
         </GridView>
       </ListView.View>
     </ListView>
-    <DockPanel Grid.Row="1">
+    <StackPanel Grid.Row="1">
+    <DockPanel Margin="4,2">
+      <DockPanel.Style><Style TargetType="DockPanel"><Style.Triggers><DataTrigger Binding="{Binding ArchiveProgress}" Value="{x:Null}"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></DockPanel.Style>
+      <Button DockPanel.Dock="Right" Content="キャンセル" Focusable="False" IsTabStop="False" Click="CancelArchive_Click" AutomationProperties.Name="アーカイブ処理をキャンセル" />
+      <StackPanel>
+        <TextBlock Text="{Binding ArchiveProgress.DisplayText}" ToolTip="{Binding ArchiveProgress.DisplayText}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextBrush}" />
+        <ProgressBar Height="8" Minimum="0" Maximum="100" Value="{Binding ArchiveProgress.Percent,Mode=OneWay}" IsIndeterminate="{Binding ArchiveProgress.IsIndeterminate}" Foreground="{DynamicResource AccentBrush}" />
+      </StackPanel>
+    </DockPanel>
+    <DockPanel>
       <Button DockPanel.Dock="Right" Content="×" Padding="4,0" Margin="2,0" Focusable="False" IsTabStop="False" Click="DismissStatus_Click" Visibility="{Binding CanDismissOperationStatus,Converter={StaticResource BoolVisibility}}" ToolTip="通知を閉じる（一覧でEsc）" AutomationProperties.Name="操作通知を閉じる" />
       <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Status}" Margin="4,2" Foreground="{DynamicResource MutedBrush}" />
     </DockPanel>
+    </StackPanel>
   </Grid>
 </UserControl>

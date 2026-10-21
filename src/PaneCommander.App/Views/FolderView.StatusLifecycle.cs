@@ -74,4 +74,5 @@ public partial class FolderView
     {
         if (statusTab?.DismissOperationStatus() == true) FileDragBehavior.Ancestor<PaneView>(this)?.FocusList(statusTab);
     }
+    private void CancelArchive_Click(object sender, RoutedEventArgs e) => (DataContext as TabState)?.CancelArchive?.Invoke();
 }

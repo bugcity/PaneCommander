@@ -25,6 +25,7 @@ public sealed class FileSystemService : IFileSystemService
         }))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (ArchiveTemporaryPaths.Contains(item.FullName)) continue;
             var attributes = item.Attributes;
             var isDirectory = attributes.HasFlag(FileAttributes.Directory);
             DateTime? modified = null;

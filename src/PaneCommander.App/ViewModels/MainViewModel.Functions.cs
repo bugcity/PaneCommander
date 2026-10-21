@@ -21,12 +21,12 @@ public sealed partial class MainViewModel
 
     private IReadOnlyList<FunctionAction> CreateFunctions(IErrorLogger logger)
     {
-        var names = new[] { "ヘルプ", "ユーザー", "表示", "編集", "コピー", "移動", "作成", "削除", "メニュー", "終了" };
-        var shifted = new[] { "—", "—", "—", "—", "別名コピー", "名前変更", "ファイル作成", "—", "—", "メニュー" };
+        var names = new[] { "ヘルプ", "展開", "表示", "編集", "コピー", "移動", "作成", "削除", "メニュー", "終了" };
+        var shifted = new[] { "—", "圧縮", "—", "—", "別名コピー", "名前変更", "ファイル作成", "—", "—", "メニュー" };
         return Enumerable.Range(1, 10).Select(number => new FunctionAction(number, names[number - 1],
-            number is 1 or 2 or 9 ? "未計画" : number == 10 ? "M2" : "M4",
+            number is 1 or 9 ? "未計画" : number == 10 ? "M2" : "M4",
             new AsyncCommand(_ => ExecuteFunctionAsync(number), logger, _ => CanExecuteFunction(number)),
-            number is 3 or 10 || number == 4 && shellEdit is not null || fileOperations is not null && number is 5 or 6 or 7 or 8,
+            number is 3 or 10 || number == 2 && archives is not null || number == 4 && shellEdit is not null || fileOperations is not null && number is 5 or 6 or 7 or 8,
             shifted[number - 1])).ToArray();
     }
 
@@ -39,6 +39,7 @@ public sealed partial class MainViewModel
         if (functionShift)
             return number switch
             {
+                2 => RequestArchive is not null && CanCompressArchives,
                 5 => fileOperations is not null && RequestSameFolderOperation is not null && count > 0,
                 6 => fileOperations is not null && RequestSameFolderOperation is not null && count == 1,
                 7 => fileOperations is not null && RequestCreateFile is not null,
@@ -47,6 +48,7 @@ public sealed partial class MainViewModel
             };
         return number switch
         {
+            2 => RequestArchive is not null && CanExtractArchives,
             3 => RequestPreview is not null && count == 1 && Workspace.ActivePane.SelectedTab.SelectedEntry is { IsDirectory: false } entry
                 && entry.Size is not > PaneCommander.Infrastructure.TextPreviewReader.MaximumBytes,
             4 => CanEditSelected,
@@ -71,6 +73,7 @@ public sealed partial class MainViewModel
         if (functionShift)
             return number switch
             {
+                2 => RequestArchive!(true),
                 5 => RequestSameFolderOperation!(FileOperationKind.Copy),
                 6 => RequestSameFolderOperation!(FileOperationKind.Move),
                 7 => RequestCreateFile!(),
@@ -78,6 +81,7 @@ public sealed partial class MainViewModel
                 _ => Task.CompletedTask
             };
         if (number == 10) { RequestClose?.Invoke(); return Task.CompletedTask; }
+        if (number == 2) return RequestArchive!(false);
         if (number == 3) return RequestPreview!(GetSelectedPaths!().Single());
         if (number == 4) return EditSelectedAsync();
         return RequestFileOperation!(number switch { 5 => FileOperationKind.Copy, 6 => FileOperationKind.Move, 7 => FileOperationKind.CreateDirectory, _ => FileOperationKind.Delete });

@@ -8,6 +8,12 @@ namespace PaneCommander.Infrastructure;
 [SupportedOSPlatform("windows")]
 public sealed class ShellContextMenu : IDisposable
 {
+    public const uint CompressCommand = 0x8001, ExtractCommand = 0x8002;
+    public void AddArchiveCommands(bool compress, bool extract)
+    {
+        EnsureThread();
+        if (!AppendMenu(menu, 0x800, 0, null) || !AppendMenu(menu, compress ? 0u : 1u, CompressCommand, "圧縮（PaneCommander）") || !AppendMenu(menu, extract ? 0u : 1u, ExtractCommand, "展開（PaneCommander）")) throw new System.ComponentModel.Win32Exception();
+    }
     private object? folderObject, menuObject;
     private HostedShellBackground? background;
     private readonly List<IntPtr> pidls = [];
@@ -127,6 +133,7 @@ public sealed class ShellContextMenu : IDisposable
     [DllImport("shell32.dll")] private static extern int SHGetDesktopFolder(out IShellFolder folder);
     [DllImport("shell32.dll")] private static extern IntPtr ILFindLastID(IntPtr pidl);
     [DllImport("user32.dll",SetLastError=true)] private static extern IntPtr CreatePopupMenu();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)] private static extern bool AppendMenu(IntPtr menu, uint flags, nuint id, string? text);
     [DllImport("user32.dll")] private static extern bool DestroyMenu(IntPtr menu);
     [DllImport("user32.dll")] private static extern uint TrackPopupMenuEx(IntPtr menu,uint flags,int x,int y,IntPtr hwnd,IntPtr parameters);
     [DllImport("user32.dll")] private static extern int GetMenuItemCount(IntPtr menu);

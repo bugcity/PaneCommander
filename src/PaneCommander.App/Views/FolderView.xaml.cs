@@ -37,8 +37,8 @@ public partial class FolderView : UserControl
         {
             if (e.ViewportWidthChange != 0) ResizeColumns();
         }));
-        DataContextChanged += (_, _) => { if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); tab = DataContext as TabState; if (tab is not null) PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); ApplySort(); };
-        Loaded += (_, _) => { if (tab is not null) { PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); } ApplySort(); RefreshDatesAfterLayout(); };
+        DataContextChanged += (_, _) => { if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); tab = DataContext as TabState; if (tab is not null) PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); ApplySort(); ApplyRequestedSelection(); };
+        Loaded += (_, _) => { if (tab is not null) { PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); } ApplySort(); RefreshDatesAfterLayout(); ApplyRequestedSelection(); };
         Files.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(SortClick));
         // GridViewColumnHeader handles the gripper's routed event before it reaches Files.
         Files.AddHandler(System.Windows.Controls.Primitives.Thumb.DragCompletedEvent, new System.Windows.Controls.Primitives.DragCompletedEventHandler(ColumnResizeCompleted), handledEventsToo: true);
@@ -69,7 +69,21 @@ public partial class FolderView : UserControl
         if (main is not null) PropertyChangedEventManager.RemoveHandler(main, SettingsChanged, ""); main = null;
         if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, "");
     }
-    private void TabChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) { if (args.PropertyName == nameof(TabState.Entries)) { ApplySort(); RefreshDatesAfterLayout(); } if (args.PropertyName == nameof(TabState.IsLoading) && tab?.IsLoading == false) RefreshDatesAfterLayout(); }
+    private void TabChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) { if (args.PropertyName == nameof(TabState.Entries)) { ApplySort(); RefreshDatesAfterLayout(); ApplyRequestedSelection(); } if (args.PropertyName == nameof(TabState.RequestedSelectionPaths)) ApplyRequestedSelection(); if (args.PropertyName == nameof(TabState.IsLoading) && tab?.IsLoading == false) { RefreshDatesAfterLayout(); ApplyRequestedSelection(); } }
+    private void ApplyRequestedSelection()
+    {
+        if (tab?.RequestedSelectionPaths.Length is not > 0 || Dispatcher.HasShutdownStarted) return;
+        var target = tab;
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+        {
+            if (!IsLoaded || target.IsLoading || target.RequestedSelectionPaths.Length == 0 || !ReferenceEquals(tab, target) || !ReferenceEquals(Files.ItemsSource, target.Entries)) return;
+            var paths = target.RequestedSelectionPaths.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            Files.SelectedItems.Clear();
+            foreach (var entry in Files.Items.OfType<FileEntry>().Where(e => paths.Contains(e.FullPath))) Files.SelectedItems.Add(entry);
+            if (Files.SelectedItem is { } first) Files.ScrollIntoView(first);
+            target.CompleteSelectionRequest();
+        });
+    }
     private void RefreshDatesAfterLayout()
     {
         if (Dispatcher.HasShutdownStarted || datesRefreshPending) return;

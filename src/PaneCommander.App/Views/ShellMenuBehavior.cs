@@ -63,6 +63,7 @@ public static class ShellMenuBehavior
         {
             IsOpen = true;
             using var menu = new ShellContextMenu(directory, paths, owner);
+            menu.AddArchiveCommands(entries.Length > 0 && main.CanCompressArchives, entries.Length > 0 && main.CanExtractArchives);
             bool Allowed(string verb) => (!entries.Any(e => e.IsReparsePoint) || ShellMenuSafety.AllowedForDirectLink(verb)) && (verb != "rename" || paths.Length == 1);
             var restricted = entries.Any(e => e.IsReparsePoint) || paths.Length > 1;
             if (restricted) menu.Restrict(Allowed);
@@ -75,6 +76,12 @@ public static class ShellMenuBehavior
             try { command = menu.Track((int)point.X, (int)point.Y); }
             finally { source.RemoveHook(Hook); }
             if (command == 0) return;
+            if (command is ShellContextMenu.CompressCommand or ShellContextMenu.ExtractCommand && window is MainWindow archiveWindow)
+            {
+                menu.Dispose(); IsOpen = false;
+                await archiveWindow.RequestArchiveAsync(command == ShellContextMenu.CompressCommand);
+                return;
+            }
             var verb = menu.Verb(command).ToLowerInvariant();
             if (!Allowed(verb)) throw new IOException("このリンクに対するShellコマンドは安全性未検証のため無効です。");
             // The transient Shell view is hidden and cannot host Explorer's inline

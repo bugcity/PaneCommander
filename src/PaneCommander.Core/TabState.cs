@@ -26,6 +26,13 @@ public sealed class TabState : ObservableObject, IDisposable
         set { if (Set(ref watchWarning, value)) Raise(nameof(Status)); }
     }
     private bool isLoading;
+    private ArchiveProgress? archiveProgress;
+    public ArchiveProgress? ArchiveProgress { get => archiveProgress; set => Set(ref archiveProgress, value); }
+    public Action? CancelArchive { get; set; }
+    private string[] requestedSelectionPaths = [];
+    public string[] RequestedSelectionPaths { get => requestedSelectionPaths; private set => Set(ref requestedSelectionPaths, value); }
+    public void RequestSelection(IEnumerable<string> paths) => RequestedSelectionPaths = paths.ToArray();
+    public void CompleteSelectionRequest() => RequestedSelectionPaths = [];
     private IReadOnlyList<FileEntry> entries = [];
     private FileEntry? selectedEntry;
     private bool disposed;
@@ -114,7 +121,7 @@ public sealed class TabState : ObservableObject, IDisposable
         if (disposed) return;
         // 履歴操作中の連打で同じ履歴を二重に確定させない。
         if (IsLoading && kind is NavigationKind.Back or NavigationKind.Forward) return;
-        if (kind != NavigationKind.Refresh) ClearOperationStatus();
+        if (kind != NavigationKind.Refresh) { ClearOperationStatus(); CompleteSelectionRequest(); }
         pending?.Cancel();
         var cancellation = new CancellationTokenSource();
         pending = cancellation;

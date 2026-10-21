@@ -22,11 +22,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private bool editing;
     private bool operating; private Task operationsIdle=Task.CompletedTask;
     public MainViewModel(IFileSystemService fileSystem, IErrorLogger logger, ISettingsStore? settingsStore = null, AppearanceSettings? settings = null,
-        IFavoritesStore? favoritesStore = null, FavoritesDocument? savedFavorites = null, ISessionStore? sessionStore = null, SessionDocument? session = null,IFileOperationService? fileOperations=null, IShellEditService? shellEdit=null)
+        IFavoritesStore? favoritesStore = null, FavoritesDocument? savedFavorites = null, ISessionStore? sessionStore = null, SessionDocument? session = null,IFileOperationService? fileOperations=null, IShellEditService? shellEdit=null, IArchiveService? archives = null)
     {
         this.settingsStore = settingsStore;
         this.fileOperations=fileOperations;
         this.shellEdit=shellEdit;
+        this.archives=archives;
         DeleteCommandEnabled=fileOperations is not null;
         this.logger = logger;
         this.favoritesStore = favoritesStore; this.sessionStore = sessionStore;
@@ -243,6 +244,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     }
     public void Dispose()
     {
+        archiveCancellation?.Cancel(); RequestArchive = null;
         Left.RequestPath = Right.RequestPath = null;
         Left.RequestListFocus = Right.RequestListFocus = null;
         Left.RequestColumns=Right.RequestColumns=null;GetSelectedPaths=null;RequestFileOperation=null;RequestPreview=null;RequestSameFolderOperation=null;RequestCreateFile=null;RequestContextMenu=null;

@@ -8,6 +8,8 @@ public sealed record AppearanceSettings
     public RenderingPreference RenderingMode { get; init; } = RenderingPreference.SoftwareOnly;
     public bool ShowFavorites { get; init; } = true;
     public bool RestoreSession { get; init; } = true;
+    public double ArchiveReserveGiB { get; init; } = 1;
+    public long GetArchiveReserveBytes() => checked((long)(ArchiveReserveGiB * 1_073_741_824));
     public TitleDisplay TitleDisplay { get; init; } = TitleDisplay.DirectoryName;
     public ColumnLayout? LeftColumns { get; init; }
     public ColumnLayout? RightColumns { get; init; }
@@ -86,6 +88,7 @@ public sealed record AppearanceSettings
         }
         void Range(string name, double value, double min, double max) { if (value < min || value > max) errors.Add($"{name}: {min}〜{max}"); }
         Range(nameof(FontSize), FontSize, 10, 32); Range(nameof(RowHeight), RowHeight, 24, 80);
+        Range(nameof(ArchiveReserveGiB), ArchiveReserveGiB, 0, 1024);
         Range(nameof(RowSpacing), RowSpacing, 0, 12); Range(nameof(BorderWidth), BorderWidth, 2, 8);
         if (RowHeight < FontSize + 6) errors.Add("RowHeight: 文字サイズ＋6以上を指定");
         Range(nameof(FileAgeSaturation), FileAgeSaturation, 0, 1);

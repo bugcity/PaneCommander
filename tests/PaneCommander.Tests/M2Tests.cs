@@ -95,10 +95,10 @@ public sealed class M2Tests
     public void FunctionKeysHaveStandardLabelsAndDisabledCommandsCannotClose()
     {
         using var main = new MainViewModel(new FakeFileSystem(), new FakeLogger()); var closes = 0; main.RequestClose = () => closes++;
-        CollectionAssert.AreEqual(new[] { "ヘルプ", "ユーザー", "表示", "編集", "コピー", "移動", "作成", "削除", "メニュー", "終了" }, main.Functions.Select(f => f.Name).ToArray());
+        CollectionAssert.AreEqual(new[] { "ヘルプ", "展開", "表示", "編集", "コピー", "移動", "作成", "削除", "メニュー", "終了" }, main.Functions.Select(f => f.Name).ToArray());
         foreach (var function in main.Functions.Take(9)) { Assert.IsFalse(function.Command.CanExecute(null)); function.Command.Execute(null); }
         Assert.AreEqual(0, closes); main.Functions[9].Command.Execute(null); Assert.AreEqual(1, closes);
-        Assert.IsTrue(main.Functions.Where(f => f.Number is 1 or 2 or 9).All(f => f.Milestone == "未計画"));
+        Assert.IsTrue(main.Functions.Where(f => f.Number is 1 or 9).All(f => f.Milestone == "未計画"));
     }
 
 }

@@ -51,6 +51,7 @@ public partial class MainWindow : Window
         Model.RequestFileOperation=RequestFileOperationAsync;Model.RequestPreview=RequestPreviewAsync;
         Model.RequestSameFolderOperation=SameFolderOperationAsync;Model.RequestCreateFile=CreateFileAsync;
         Model.RequestContextMenu=()=>ShellMenuBehavior.ShowSelectionAsync((Model.Workspace.Left.IsActive?LeftPane:RightPane).CurrentFileList!,Model.Workspace.ActivePane.SelectedTab.CurrentPath,Model);
+        Model.RequestArchive = RequestArchiveAsync;
         Model.NotifyFileCommands();
         Closed+=(_,_)=>{Model.Left.RequestListFocus=Model.Right.RequestListFocus=null;Model.Left.RequestColumns=Model.Right.RequestColumns=null;Model.GetSelectedPaths=null;Model.GetShellOwner=null;Model.RequestFileOperation=null;Model.RequestPreview=null;};
         Model.RequestClose = Close;
@@ -60,7 +61,7 @@ public partial class MainWindow : Window
         Activated += WindowActivity;
         Activated += FunctionKeysActivated;
         Deactivated += FunctionKeysDeactivated;
-        Closed += (_, _) => { Activated -= FunctionKeysActivated; Deactivated -= FunctionKeysDeactivated; Model.SetFunctionModifiers(ModifierKeys.None); Model.RequestSameFolderOperation=null; Model.RequestCreateFile=null; Model.RequestContextMenu=null; ClipboardOperation=null; };
+        Closed += (_, _) => { Activated -= FunctionKeysActivated; Deactivated -= FunctionKeysDeactivated; Model.SetFunctionModifiers(ModifierKeys.None); Model.RequestSameFolderOperation=null; Model.RequestCreateFile=null; Model.RequestContextMenu=null; Model.RequestArchive=null; ClipboardOperation=null; };
         StateChanged += WindowActivity;
         Closed += (_, _) => { closed = true; Model.PropertyChanged -= ModelChanged; Activated -= WindowActivity; StateChanged -= WindowActivity; LeftPane.ReleaseResources(); RightPane.ReleaseResources(); DateCells.Clear(); Model.Left.RequestPath = Model.Right.RequestPath = null; Model.RequestSettings = null; Model.RequestClose = null; Model.RequestFavoriteName = null; };
         await Model.Workspace.InitializeAsync();
@@ -209,14 +210,15 @@ public partial class MainWindow : Window
     private async void SaveBeforeClose(object? sender, CancelEventArgs e)
     {
         if (ShellMenuBehavior.IsOpen) { e.Cancel = true; return; }
-        if (closeApproved || DataContext is not MainViewModel model || !model.HasSessionStore) return;
+        if (closeApproved || DataContext is not MainViewModel model || !model.HasSessionStore && !model.IsArchiveOperationRunning) return;
+        if (model.IsArchiveOperationRunning) model.CancelActiveArchive();
         e.Cancel = true;
         if (savingSession) return;
         savingSession = true;
         IsEnabled = false;
         try
         {
-            SessionSaveTask = model.SaveSessionAsync(CaptureLayout());
+            SessionSaveTask = model.HasSessionStore ? model.SaveSessionAsync(CaptureLayout()) : model.WaitForOperationsAsync();
             await SessionSaveTask;
             // Always leave the original Closing callback before requesting Close again.
             // This also handles a store whose Task completed synchronously.
