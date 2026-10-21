@@ -113,7 +113,9 @@ public partial class MainWindow : Window
             var sources=Model.GetSelectedPaths?.Invoke()??[];
             if(kind==FileOperationKind.Delete){await DeleteSelectedAsync(sources,true);return;}
             var creationTab = Model.Workspace.ActivePane.SelectedTab;
-            var dialog=new FileOperationDialog(kind,sources.Length,kind==FileOperationKind.CreateDirectory?"新しいフォルダ":kind==FileOperationKind.CreateFile?"新しいファイル.txt":Model.Workspace.OppositePane.SelectedTab.CurrentPath,sources.Length==1?System.IO.Path.GetDirectoryName(sources[0]):null){Owner=this};
+            var originalEntry = sources.Length == 1 ? creationTab.Entries.FirstOrDefault(entry => StringComparer.OrdinalIgnoreCase.Equals(entry.FullPath, sources[0])) : null;
+            var dialog=new FileOperationDialog(kind,sources.Length,kind==FileOperationKind.CreateDirectory?"新しいフォルダ":kind==FileOperationKind.CreateFile?"新しいファイル.txt":Model.Workspace.OppositePane.SelectedTab.CurrentPath,sources.Length==1?System.IO.Path.GetDirectoryName(sources[0]):null,
+                originalName: sources.Length == 1 ? System.IO.Path.GetFileName(sources[0]) : null, originalIsDirectory: originalEntry?.IsDirectory == true){Owner=this};
             if(dialog.ShowDialog()!=true)return;
             var request=kind is FileOperationKind.CreateDirectory or FileOperationKind.CreateFile?new FileOperationRequest(kind,[],creationDirectory ?? creationTab.CurrentPath,dialog.Destination):new FileOperationRequest(kind,sources,dialog.Destination,dialog.NewName);
             var result = await Model.ExecuteFileOperationAsync(request,new System.Windows.Interop.WindowInteropHelper(this).Handle);
@@ -142,7 +144,8 @@ public partial class MainWindow : Window
             foreach(var source in sources)
             {
                 var folder=System.IO.Path.GetDirectoryName(source)!;
-                var dialog=new FileOperationDialog(kind,1,folder,folder,System.IO.Path.GetFileName(source)){Owner=this};
+                var originalEntry = Model.Workspace.ActivePane.SelectedTab.Entries.FirstOrDefault(entry => StringComparer.OrdinalIgnoreCase.Equals(entry.FullPath, source));
+                var dialog=new FileOperationDialog(kind,1,folder,folder,System.IO.Path.GetFileName(source),originalIsDirectory:originalEntry?.IsDirectory==true){Owner=this};
                 if(dialog.ShowDialog()!=true)return;
                 requests.Add(SameFolderOperation.Create(kind,source,dialog.NewName!));
             }
