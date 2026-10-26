@@ -7,6 +7,7 @@ public sealed partial class MainViewModel
 {
     private bool functionShift;
     private bool functionModifiersSupported = true;
+    internal bool CanRenameFiles => fileOperations is not null && !operating && !editing;
     public Func<FileOperationKind, Task>? RequestSameFolderOperation { get; set; }
     public Func<Task>? RequestCreateFile { get; set; }
     public Func<Task>? RequestContextMenu { get; set; }

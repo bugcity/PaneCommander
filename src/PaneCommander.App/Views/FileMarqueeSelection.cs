@@ -63,6 +63,7 @@ internal sealed class FileMarqueeSelection
     internal bool Begin(Point point, ModifierKeys keys, DependencyObject? source)
     {
         if (!enabled() || ShellMenuBehavior.IsOpen || (keys & ModifierKeys.Alt) != 0
+            || FileDragBehavior.Ancestor<TextBoxBase>(source) is not null
             || FileDragBehavior.Ancestor<GridViewColumnHeader>(source) is not null
             || FileDragBehavior.Ancestor<ScrollBar>(source) is not null
             || FileDragBehavior.Ancestor<TextBlock>(source) is not null

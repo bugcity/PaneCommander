@@ -23,6 +23,7 @@ public partial class FolderView : UserControl
     {
         InitializeComponent();
         InitializeStatusLifecycle();
+        InitializeRename();
         FileMarqueeSelection.Attach(Files, () => main is { IsFileOperationRunning: false });
         _ = new FileListFilter(Files, () => DataContext as TabState);
         columns=((GridView)Files.View).Columns.Zip(new[]{"Name","Kind","Size","FileAge","LastWriteTime"}).ToDictionary(p=>p.Second,p=>p.First);
@@ -37,7 +38,7 @@ public partial class FolderView : UserControl
         {
             if (e.ViewportWidthChange != 0) ResizeColumns();
         }));
-        DataContextChanged += (_, _) => { if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); tab = DataContext as TabState; if (tab is not null) PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); ApplySort(); ApplyRequestedSelection(); };
+        DataContextChanged += (_, _) => { CancelRename(false); if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); tab = DataContext as TabState; if (tab is not null) PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); ApplySort(); ApplyRequestedSelection(); };
         Loaded += (_, _) => { if (tab is not null) { PropertyChangedEventManager.RemoveHandler(tab, TabChanged, ""); PropertyChangedEventManager.AddHandler(tab, TabChanged, ""); } ApplySort(); RefreshDatesAfterLayout(); ApplyRequestedSelection(); };
         Files.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(SortClick));
         // GridViewColumnHeader handles the gripper's routed event before it reaches Files.
@@ -69,7 +70,7 @@ public partial class FolderView : UserControl
         if (main is not null) PropertyChangedEventManager.RemoveHandler(main, SettingsChanged, ""); main = null;
         if (tab is not null) PropertyChangedEventManager.RemoveHandler(tab, TabChanged, "");
     }
-    private void TabChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) { if (args.PropertyName == nameof(TabState.Entries)) { ApplySort(); RefreshDatesAfterLayout(); ApplyRequestedSelection(); } if (args.PropertyName == nameof(TabState.RequestedSelectionPaths)) ApplyRequestedSelection(); if (args.PropertyName == nameof(TabState.IsLoading) && tab?.IsLoading == false) { RefreshDatesAfterLayout(); ApplyRequestedSelection(); } }
+    private void TabChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) { if (args.PropertyName == nameof(TabState.Entries) || args.PropertyName == nameof(TabState.IsLoading) && tab?.IsLoading == true) CancelRename(false); if (args.PropertyName == nameof(TabState.Entries)) { ApplySort(); RefreshDatesAfterLayout(); ApplyRequestedSelection(); } if (args.PropertyName == nameof(TabState.RequestedSelectionPaths)) ApplyRequestedSelection(); if (args.PropertyName == nameof(TabState.IsLoading) && tab?.IsLoading == false) { RefreshDatesAfterLayout(); ApplyRequestedSelection(); } }
     private void ApplyRequestedSelection()
     {
         if (tab?.RequestedSelectionPaths.Length is not > 0 || Dispatcher.HasShutdownStarted) return;
@@ -111,7 +112,7 @@ public partial class FolderView : UserControl
         if (view is null) return;
         using (view.DeferRefresh()) { view.SortDescriptions.Clear(); view.SortDescriptions.Add(new(nameof(FileEntry.IsDirectory), System.ComponentModel.ListSortDirection.Descending)); view.SortDescriptions.Add(new(tab.SortProperty == "FileAge" ? nameof(FileEntry.LastWriteTime) : tab.SortProperty, (tab.SortDescending ^ (tab.SortProperty == "FileAge")) ? System.ComponentModel.ListSortDirection.Descending : System.ComponentModel.ListSortDirection.Ascending)); }
     }
-    private void SettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) { if (args.PropertyName == nameof(MainViewModel.Settings)) { ResizeColumns(); RefreshDatesAfterLayout(); } }
+    private void SettingsChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args) { if (args.PropertyName == nameof(MainViewModel.IsFileOperationRunning) && main?.IsFileOperationRunning == true) CancelRename(false); if (args.PropertyName == nameof(MainViewModel.Settings)) { ResizeColumns(); RefreshDatesAfterLayout(); } }
     private void ResizeColumns()
     {
         if (Files.View is not GridView view) return;
@@ -166,7 +167,7 @@ public partial class FolderView : UserControl
     private void Files_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         // 空白・列ヘッダーのダブルクリックで前の選択を起動しない。
-        if (e.ChangedButton != MouseButton.Left) return;
+        if (e.ChangedButton != MouseButton.Left || FileDragBehavior.Ancestor<System.Windows.Controls.Primitives.TextBoxBase>(e.OriginalSource as DependencyObject) is not null) return;
         if (ItemsControl.ContainerFromElement(Files, e.OriginalSource as DependencyObject) is not ListViewItem { DataContext: FileEntry entry }) return;
         PaneModel?.Open.Execute(entry);
         e.Handled = true;

@@ -28,6 +28,7 @@ public static class FileDragBehavior
         IDataObject? cachedData = null; string? cachedDestination = null; DragDropKeyStates cachedKeys = 0; DragDropEffects cachedAllowed = 0, cachedEffect = DragDropEffects.None;
         list.PreviewMouseLeftButtonDown += (_, e) =>
         {
+            if (Ancestor<System.Windows.Controls.Primitives.TextBoxBase>(e.OriginalSource as DependencyObject) is not null) { start = null; return; }
             if (e.Handled) return;
             deferred = null; var row = ItemsControl.ContainerFromElement(list, e.OriginalSource as DependencyObject) as ListViewItem; start = row is null ? null : e.GetPosition(list); clickModifiers = Keyboard.Modifiers;
             anchor = row?.Content as FileEntry; dragSources = CaptureSources(list, anchor);

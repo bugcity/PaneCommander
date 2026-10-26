@@ -46,7 +46,10 @@
                     <local:ShellFileIcon HorizontalAlignment="Left" />
                     <Path Data="M1,17 L1,11 7,11 M1,17 L8,10" Stroke="#FFFFFF" StrokeThickness="2" HorizontalAlignment="Left" VerticalAlignment="Bottom" IsHitTestVisible="False" Visibility="{Binding IsReparsePoint,Converter={StaticResource BoolVisibility}}" />
                   </Grid>
-                  <local:HighlightedFileName FileName="{Binding Name}" Query="{Binding DataContext.FilterText,RelativeSource={RelativeSource AncestorType=ListView}}" />
+                  <Grid>
+                    <local:HighlightedFileName FileName="{Binding Name}" Query="{Binding DataContext.FilterText,RelativeSource={RelativeSource AncestorType=ListView}}" />
+                    <TextBox Visibility="Collapsed" Padding="1,0" Margin="0" MinWidth="40" VerticalContentAlignment="Center" AutomationProperties.Name="ファイル名の変更" />
+                  </Grid>
                 </DockPanel>
               </DataTemplate>
             </GridViewColumn.CellTemplate>

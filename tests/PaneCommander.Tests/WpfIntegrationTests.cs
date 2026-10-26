@@ -346,6 +346,7 @@ public sealed partial class WpfIntegrationTests
                 VerifyExternalDragFocusRecovery();
                 VerifyShellFolderCreation();
                 VerifyOperationNameDefaults();
+                VerifyInlineRename();
                 VerifyArchives();
                 VerifyStatusLifecycle();
                 VerifyMouseSelection();
