@@ -23,6 +23,19 @@ public sealed partial class WpfIntegrationTests
             Point At(int index) { list.UpdateLayout(); var row = (ListViewItem)list.ItemContainerGenerator.ContainerFromIndex(index); return row.TranslatePoint(new Point(list.ActualWidth - 30, row.ActualHeight / 2), list); }
             int[] Selected() => list.SelectedItems.Cast<object>().Select(list.Items.IndexOf).Order().ToArray();
             var label = Descendants<HighlightedFileName>(list).First();
+            var icon = Descendants<ShellFileIcon>(list).First();
+            foreach (var local in new[] { new Point(8, 8), new Point(18, 8) })
+            {
+                var iconArea = (Grid)icon.Parent;
+                var point = iconArea.TranslatePoint(local, list);
+                var hit = list.InputHitTest(point) as DependencyObject;
+                Assert.AreEqual("FileIconArea", FileDragBehavior.Ancestor<Grid>(hit)?.Name, "アイコン本体と余白を行の内容としてヒットテスト");
+                list.SelectedIndex = 0;
+                Assert.IsFalse(behavior.Begin(point, ModifierKeys.None, hit), "アイコンのクリックを矩形選択として処理しない");
+                Assert.AreEqual(0, list.SelectedIndex, "既存の選択を消去しない");
+                Assert.IsFalse(list.IsMouseCaptured);
+                Assert.AreEqual(((FileEntry)list.Items[0]).FullPath, FileDragBehavior.CaptureSources(list, (FileEntry)list.Items[0]).Single(), "アイコンからのDnDも同じ行を扱う");
+            }
             Assert.IsFalse(behavior.Begin(At(1), ModifierKeys.None, label), "名前からはファイルDnDを開始できる");
             Assert.IsFalse(behavior.Begin(At(1), ModifierKeys.None, Descendants<GridViewColumnHeader>(list).First()), "列見出しの操作を奪わない");
             Assert.IsTrue(behavior.Begin(At(1), ModifierKeys.None, list));

@@ -68,6 +68,7 @@ internal sealed class FileMarqueeSelection
             || FileDragBehavior.Ancestor<ScrollBar>(source) is not null
             || FileDragBehavior.Ancestor<TextBlock>(source) is not null
             || FileDragBehavior.Ancestor<ShellFileIcon>(source) is not null
+            || FileDragBehavior.Ancestor<Grid>(source)?.Name == "FileIconArea"
             || !Viewport().Contains(point)) return false;
         Finish();
         if (!list.CaptureMouse()) return false;

@@ -42,7 +42,7 @@
             <GridViewColumn.CellTemplate>
               <DataTemplate>
                 <DockPanel HorizontalAlignment="Left" ToolTip="{Binding MetadataError}">
-                  <Grid DockPanel.Dock="Left" Width="20" Height="18" Margin="0,0,3,0" VerticalAlignment="Center">
+                  <Grid x:Name="FileIconArea" Background="Transparent" DockPanel.Dock="Left" Width="20" Height="18" Margin="0,0,3,0" VerticalAlignment="Center">
                     <local:ShellFileIcon HorizontalAlignment="Left" />
                     <Path Data="M1,17 L1,11 7,11 M1,17 L8,10" Stroke="#FFFFFF" StrokeThickness="2" HorizontalAlignment="Left" VerticalAlignment="Bottom" IsHitTestVisible="False" Visibility="{Binding IsReparsePoint,Converter={StaticResource BoolVisibility}}" />
                   </Grid>
