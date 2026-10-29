@@ -26,6 +26,15 @@ public sealed class WorkspaceState : ObservableObject, IDisposable
         Raise(nameof(OppositePane));
     }
     public void Toggle() => Activate(activeSide == PaneSide.Left ? PaneSide.Right : PaneSide.Left);
+    public bool MoveTabToPane(TabState tab, PaneSide targetSide, int? targetIndex = null)
+    {
+        if (targetSide is not (PaneSide.Left or PaneSide.Right)) throw new ArgumentOutOfRangeException(nameof(targetSide));
+        var destination = targetSide == PaneSide.Left ? Left : Right;
+        var source = targetSide == PaneSide.Left ? Right : Left;
+        if (!source.TransferTabTo(tab, destination, targetIndex ?? destination.Tabs.Count)) return false;
+        Activate(targetSide);
+        return true;
+    }
     public Task InitializeAsync() => Task.WhenAll(Left.SelectedTab.RefreshAsync(), Right.SelectedTab.RefreshAsync());
     public void Restore(SessionDocument session)
     {

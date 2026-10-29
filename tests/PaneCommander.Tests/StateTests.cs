@@ -6,6 +6,76 @@ namespace PaneCommander.Tests;
 [TestClass]
 public sealed class StateTests
 {
+    [TestMethod]
+    public async Task MovingTabAcrossPanesKeepsIdentityHistorySettingsAndSelection()
+    {
+        var files = new FakeFileSystem();
+        using var workspace = new WorkspaceState(Home, files, new FakeLogger());
+        await workspace.InitializeAsync();
+        var tab = workspace.Left.SelectedTab;
+        await tab.NavigateAsync(Path.Combine(Home, "child"));
+        tab.ShowHiddenFiles = true; tab.ShowDotFiles = true;
+        tab.SortProperty = nameof(FileEntry.Size); tab.SortDescending = true; tab.FilterText = "sample";
+        var selection = tab.SelectedEntry = tab.Entries[0];
+        workspace.Left.AddTab();
+        workspace.Left.SelectedTab = tab;
+        var reads = files.ReadCount;
+        Assert.IsTrue(workspace.MoveTabToPane(tab, PaneSide.Right, 0));
+        Assert.AreSame(tab, workspace.Right.SelectedTab);
+        Assert.AreSame(tab, workspace.Right.Tabs[0]);
+        Assert.IsFalse(workspace.Left.Tabs.Contains(tab));
+        Assert.AreSame(selection, tab.SelectedEntry);
+        Assert.AreEqual(reads, files.ReadCount, "移動したタブは再列挙しない");
+        Assert.IsTrue(tab.ShowHiddenFiles && tab.ShowDotFiles && tab.SortDescending && tab.CanGoBack);
+        Assert.AreEqual(nameof(FileEntry.Size), tab.SortProperty);
+        Assert.AreEqual("sample", tab.FilterText);
+        Assert.AreEqual(PaneSide.Right, workspace.ActiveSide);
+        var snapshot = workspace.Capture(new WindowLayout());
+        Assert.AreEqual(tab.CurrentPath, snapshot.Right.Tabs[0].Path);
+        Assert.AreEqual(0, snapshot.Right.SelectedIndex);
+        await tab.BackAsync();
+        Assert.AreEqual(Home, tab.CurrentPath);
+        Assert.IsTrue(workspace.MoveTabToPane(tab, PaneSide.Left));
+        Assert.AreSame(tab, workspace.Left.SelectedTab);
+    }
+
+    [TestMethod]
+    public async Task MovingLastTabLeavesUsableReplacementAndInvalidTransfersDoNothing()
+    {
+        using var workspace = Create();
+        await workspace.InitializeAsync();
+        var tab = workspace.Left.SelectedTab;
+        Assert.IsFalse(workspace.MoveTabToPane(tab, PaneSide.Left));
+        Assert.IsFalse(workspace.MoveTabToPane(tab, PaneSide.Right, -1));
+        Assert.IsFalse(workspace.MoveTabToPane(tab, PaneSide.Right, 2));
+        using var foreign = Create();
+        Assert.IsFalse(workspace.MoveTabToPane(foreign.Left.SelectedTab, PaneSide.Right));
+        Assert.AreEqual(1, workspace.Left.Tabs.Count);
+        Assert.IsTrue(workspace.MoveTabToPane(tab, PaneSide.Right));
+        Assert.AreEqual(1, workspace.Left.Tabs.Count);
+        Assert.AreNotSame(tab, workspace.Left.SelectedTab);
+        Assert.AreEqual(tab.CurrentPath, workspace.Left.SelectedTab.CurrentPath);
+        Assert.IsTrue(workspace.Left.SelectedTab.NavigationSucceeded);
+        Assert.AreEqual(2, workspace.Right.Tabs.Count);
+        Assert.IsTrue(workspace.Left.CloseTab(tab) == false, "移動元はタブを破棄できない");
+        await tab.RefreshAsync();
+        Assert.IsTrue(tab.NavigationSucceeded);
+    }
+
+    [TestMethod]
+    public async Task MovingLoadingTabDoesNotCancelItsNavigation()
+    {
+        using var workspace = new WorkspaceState(Home, new CancellableFileSystem(), new FakeLogger());
+        var tab = workspace.Left.SelectedTab;
+        var loading = tab.RefreshAsync();
+        Assert.IsTrue(workspace.MoveTabToPane(tab, PaneSide.Right));
+        await Task.Delay(30);
+        Assert.IsFalse(loading.IsCompleted, "所有ペインの変更だけで読み込みをキャンセルしない");
+        tab.CancelLoading();
+        await loading;
+        workspace.Left.SelectedTab.CancelLoading();
+    }
+
     private static readonly string Home = Path.Combine(Path.GetTempPath(), "PaneCommanderHome");
     private static WorkspaceState Create() => new(Home, new FakeFileSystem(), new FakeLogger());
 

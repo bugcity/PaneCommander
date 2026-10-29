@@ -56,10 +56,10 @@ public partial class PaneView
             var target = FindTabDrop(e);
             e.Effects = target is null ? DragDropEffects.None : DragDropEffects.Move;
             ClearInsertionMarker();
-            if (target is { } drop && AdornerLayer.GetAdornerLayer(drop.Header) is { } layer)
+            if (target is { Header: { } header } drop && AdornerLayer.GetAdornerLayer(header) is { } layer)
             {
                 insertionLayer = layer;
-                insertionMarker = new TabInsertionAdorner(drop.Header, drop.After, (Brush)FindResource("AccentBrush")) { IsHitTestVisible = false };
+                insertionMarker = new TabInsertionAdorner(header, drop.After, (Brush)FindResource("AccentBrush")) { IsHitTestVisible = false };
                 layer.Add(insertionMarker);
             }
         };
@@ -71,25 +71,57 @@ public partial class PaneView
             ClearInsertionMarker();
             if (FindTabDrop(e) is not { } drop || DataContext is not PaneViewModel pane) return;
             var payload = (TabMovePayload)e.Data.GetData(TabMoveFormat, false);
-            var sourceIndex = pane.State.Tabs.IndexOf(payload.Tab);
-            var gap = pane.State.Tabs.IndexOf((TabState)drop.Header.DataContext) + (drop.After ? 1 : 0);
-            var targetIndex = gap > sourceIndex ? gap - 1 : gap;
-            _ = pane.State.MoveTab(payload.Tab, targetIndex);
-            e.Effects = DragDropEffects.Move;
-            if (Window.GetWindow(this)?.DataContext is MainViewModel main) main.Workspace.Activate(pane.State.Side);
-            FocusList();
+            var gap = drop.Header is null ? pane.State.Tabs.Count
+                : pane.State.Tabs.IndexOf((TabState)drop.Header.DataContext) + (drop.After ? 1 : 0);
+            if (ReferenceEquals(payload.Owner, pane.State))
+            {
+                var sourceIndex = pane.State.Tabs.IndexOf(payload.Tab);
+                _ = pane.State.MoveTab(payload.Tab, gap > sourceIndex ? gap - 1 : gap);
+                if (Window.GetWindow(this)?.DataContext is MainViewModel main) main.Workspace.Activate(pane.State.Side);
+                FocusList();
+                e.Effects = DragDropEffects.Move;
+            }
+            else if (MoveTabHere(payload.Tab, gap)) e.Effects = DragDropEffects.Move;
         };
         Unloaded += (_, _) => ClearInsertionMarker();
     }
 
-    private (TabItem Header, bool After)? FindTabDrop(DragEventArgs e)
+    private (TabItem? Header, bool After)? FindTabDrop(DragEventArgs e)
     {
         if (!e.AllowedEffects.HasFlag(DragDropEffects.Move) || DataContext is not PaneViewModel pane
-            || e.Data.GetData(TabMoveFormat, false) is not TabMovePayload payload || !ReferenceEquals(payload.Owner, pane.State)
-            || !pane.State.Tabs.Contains(payload.Tab)) return null;
+            || e.Data.GetData(TabMoveFormat, false) is not TabMovePayload payload
+            || Window.GetWindow(this)?.DataContext is not MainViewModel main
+            || !(ReferenceEquals(payload.Owner, main.Workspace.Left) || ReferenceEquals(payload.Owner, main.Workspace.Right))
+            || !payload.Owner.Tabs.Contains(payload.Tab)) return null;
         var header = FileDragBehavior.Ancestor<TabItem>(e.OriginalSource as DependencyObject);
-        if (header?.DataContext is not TabState target || !pane.State.Tabs.Contains(target)) return null;
+        if (header?.DataContext is not TabState target || !pane.State.Tabs.Contains(target)) return (null, true);
         return (header, e.GetPosition(header).X >= header.ActualWidth / 2);
+    }
+
+    internal bool MoveTabHere(TabState tab, int? targetIndex = null)
+    {
+        if (DataContext is not PaneViewModel destination || Window.GetWindow(this) is not MainWindow window
+            || window.DataContext is not MainViewModel main) return false;
+        var source = destination.State.Side == PaneSide.Left ? main.Workspace.Right : main.Workspace.Left;
+        if (!source.Tabs.Contains(tab) || targetIndex is < 0 || targetIndex > destination.State.Tabs.Count) return false;
+        var sourceView = (PaneView)window.FindName(source.Side == PaneSide.Left ? "LeftPane" : "RightPane");
+        var list = sourceView.CurrentFileList;
+        if (ReferenceEquals(source.SelectedTab, tab) && ReferenceEquals(list?.DataContext, tab))
+        {
+            var selected = list.SelectedItems.OfType<FileEntry>().Select(entry => entry.FullPath).ToArray();
+            if (selected.Length > 0) tab.RequestSelection(selected);
+        }
+        if (!main.Workspace.MoveTabToPane(tab, destination.State.Side, targetIndex)) return false;
+        FocusList(tab);
+        return true;
+    }
+
+    private void MoveTabToOtherPane_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { DataContext: TabState tab } || DataContext is not PaneViewModel pane
+            || Window.GetWindow(this) is not MainWindow window) return;
+        var destination = (PaneView)window.FindName(pane.State.Side == PaneSide.Left ? "RightPane" : "LeftPane");
+        destination.MoveTabHere(tab);
     }
 
     private void ClearInsertionMarker()

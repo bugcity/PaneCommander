@@ -54,6 +54,24 @@ public sealed class PaneState : ObservableObject, IDisposable
         if (direction is not (-1 or 1)) throw new ArgumentOutOfRangeException(nameof(direction));
         return MoveTab(selectedTab, tabs.IndexOf(selectedTab) + direction);
     }
+    internal bool TransferTabTo(TabState tab, PaneState destination, int targetIndex)
+    {
+        var index = tabs.IndexOf(tab);
+        if (ReferenceEquals(this, destination) || index < 0 || targetIndex < 0 || targetIndex > destination.tabs.Count) return false;
+        if (tabs.Count == 1)
+            tabs.Add(new TabState(tab.CurrentPath, fileSystem, logger)
+            { ShowHiddenFiles = tab.ShowHiddenFiles, ShowDotFiles = tab.ShowDotFiles, SortProperty = tab.SortProperty, SortDescending = tab.SortDescending });
+        // Register the new owner first so directory monitoring keeps the same subscription.
+        destination.tabs.Insert(targetIndex, tab);
+        var wasSelected = ReferenceEquals(selectedTab, tab);
+        if (wasSelected)
+            Set(ref selectedTab, tabs[index == tabs.Count - 1 ? index - 1 : index + 1], nameof(SelectedTab));
+        tabs.Remove(tab);
+        TrimInactiveSnapshots();
+        if (wasSelected) _ = selectedTab.EnsureLoadedAsync();
+        destination.SelectedTab = tab;
+        return true;
+    }
     public TabState AddTab()
     {
         var tab = new TabState(SelectedTab.CurrentPath, fileSystem, logger) { ShowHiddenFiles = SelectedTab.ShowHiddenFiles, ShowDotFiles = SelectedTab.ShowDotFiles };

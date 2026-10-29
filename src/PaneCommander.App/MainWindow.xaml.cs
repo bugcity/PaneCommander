@@ -268,6 +268,12 @@ public partial class MainWindow : Window
         }
         var modifiers = Keyboard.Modifiers;
         if (HandleFileClipboardKey(key, modifiers, e.OriginalSource as DependencyObject)) { e.Handled=true; return; }
+        if (modifiers == (ModifierKeys.Control | ModifierKeys.Alt) && key is Key.Left or Key.Right)
+        {
+            (key == Key.Left ? LeftPane : RightPane).MoveTabHere(Model.Workspace.ActivePane.SelectedTab);
+            e.Handled = true;
+            return;
+        }
         if (modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && key is Key.Left or Key.Right)
         {
             Model.Workspace.ActivePane.MoveSelectedTab(key == Key.Left ? -1 : 1);

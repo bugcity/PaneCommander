@@ -88,6 +88,11 @@
         <TabControl.ItemTemplate>
           <DataTemplate>
             <Grid ToolTip="{Binding CurrentPath}">
+              <Grid.ContextMenu>
+                <ContextMenu DataContext="{Binding PlacementTarget.DataContext,RelativeSource={RelativeSource Self}}">
+                  <MenuItem Header="反対側のパネルへ移動" Click="MoveTabToOtherPane_Click" />
+                </ContextMenu>
+              </Grid.ContextMenu>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
