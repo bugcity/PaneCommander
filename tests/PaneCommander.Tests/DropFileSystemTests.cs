@@ -40,12 +40,12 @@ public sealed class DropFileSystemTests
             await File.WriteAllTextAsync(destination, "existing target must survive failure");
             var sourceHash = SHA256.HashData(File.ReadAllBytes(source));
             var destinationHash = SHA256.HashData(File.ReadAllBytes(destination));
-            var service = ShellFileOperationService.ForIsolatedTest(root);
+            var service = ShellFileOperationService.ForIsolatedTest(root, useConfirmationPolicy: true);
             using (var locked = new FileStream(destination, FileMode.Open, FileAccess.Read, FileShare.None))
             {
                 try
                 {
-                    var result = await service.ExecuteAsync(new(FileOperationKind.Move, [source], right), IntPtr.Zero);
+                    var result = await service.ExecuteAsync(new(FileOperationKind.Move, [source], right, Overwrite: true), IntPtr.Zero);
                     Assert.IsTrue(result.Aborted, "書き込み不能な既存先への移動を成功扱いしない");
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException) { }

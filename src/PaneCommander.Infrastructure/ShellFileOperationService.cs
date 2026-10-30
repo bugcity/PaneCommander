@@ -12,15 +12,16 @@ public sealed class ShellFileOperationService : IFileOperationService
 {
     private readonly string[]? testScopes;
     private readonly Action<string>? testRecycleReceipt;
+    private readonly bool testUseConfirmationPolicy;
     public ShellFileOperationService() { }
-    private ShellFileOperationService(string[] scopes,Action<string>? receipt) { testScopes = scopes;testRecycleReceipt=receipt; }
-    internal static ShellFileOperationService ForIsolatedTest(string scope,Action<string>? recycleReceipt=null)
+    private ShellFileOperationService(string[] scopes,Action<string>? receipt, bool useConfirmationPolicy = false) { testScopes = scopes;testRecycleReceipt=receipt;testUseConfirmationPolicy=useConfirmationPolicy; }
+    internal static ShellFileOperationService ForIsolatedTest(string scope,Action<string>? recycleReceipt=null, bool useConfirmationPolicy = false)
     {
         var path = FileSystemService.NormalizePath(scope); var parent = Path.Combine(Path.GetTempPath(), "PaneCommanderReviewTests");
         var isolatedParent = string.Equals(Path.GetDirectoryName(path), Path.TrimEndingDirectorySeparator(parent), StringComparison.OrdinalIgnoreCase)
             || path.StartsWith(@"\\", StringComparison.Ordinal) && Path.GetFileName(Path.GetDirectoryName(path)) == "PaneCommanderReviewTests";
         if (!isolatedParent || !Guid.TryParse(Path.GetFileName(path), out _) || !Directory.Exists(path)) throw new ArgumentException("隔離されたテスト用GUIDディレクトリが必要です。");
-        return new([path],recycleReceipt);
+        return new([path],recycleReceipt,useConfirmationPolicy);
     }
     internal static ShellFileOperationService ForIsolatedTransferTest(string first, string second)
     {
@@ -111,11 +112,8 @@ public sealed class ShellFileOperationService : IFileOperationService
                 }
                 operation = (IFileOperation)Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("3AD05575-8857-4850-9277-11B85BDB8E09"), true)!)!;
                 operation.SetOwnerWindow(owner);
-                uint flags = 0x4000; // Warn before any permanent destruction; keep collision/error/progress UI.
-                if (request.Kind != FileOperationKind.Delete || request.Recycle) flags |= 0x20000000;
-                if (request.Kind == FileOperationKind.Delete && request.Recycle) flags |= 0x00080000;
-                if (request.Kind == FileOperationKind.Copy && request.NewName is null && request.Sources.All(s => string.Equals(Path.GetDirectoryName(Path.GetFullPath(s)), Path.TrimEndingDirectorySeparator(request.Destination!), StringComparison.OrdinalIgnoreCase))) flags |= 8;
-                operation.SetOperationFlags(testScopes is null ? flags : 0x00100614 | (flags & 8) | (request.Kind==FileOperationKind.Delete&&request.Recycle?0x00084000u:0)); // Tests preserve recycle semantics and nuke warning.
+                var flags = GetOperationFlags(request);
+                operation.SetOperationFlags(testScopes is null ? flags : 0x00100604 | (flags & 8) | (testUseConfirmationPolicy ? flags & 0x10 : 0x10u) | (request.Kind==FileOperationKind.Delete&&request.Recycle?0x00084000u:0)); // Tests preserve recycle semantics and nuke warning.
                 if(testRecycleReceipt is not null && request.Kind==FileOperationKind.Delete && request.Recycle){receipt=new(testRecycleReceipt);receiptPointer=Marshal.GetComInterfaceForObject<RecycleReceiptSink,IRecycleReceiptSink>(receipt);}
                 IntPtr Item(string path) { var iid = new Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"); Marshal.ThrowExceptionForHR(SHCreateItemFromParsingName(path, IntPtr.Zero, ref iid, out var item)); items.Add(item); return item; }
                 var destination = request.Destination is null ? IntPtr.Zero : Item(request.Destination);
@@ -134,6 +132,16 @@ public sealed class ShellFileOperationService : IFileOperationService
             finally { foreach (var item in items) Marshal.Release(item); if (operation is not null) Marshal.FinalReleaseComObject(operation);if(receiptPointer!=IntPtr.Zero)Marshal.Release(receiptPointer);GC.KeepAlive(receipt); }
         })
         { IsBackground = true, Name = "PaneCommander Shell operation" }; thread.SetApartmentState(ApartmentState.STA); thread.Start(); return completion.Task;
+    }
+    internal static uint GetOperationFlags(FileOperationRequest request)
+    {
+        uint flags = 0x4000; // Warn before permanent deletion; preserve error and progress UI.
+        if (request.Kind != FileOperationKind.Delete || request.Recycle) flags |= 0x20000000;
+        if (request.Kind == FileOperationKind.Delete && request.Recycle) flags |= 0x00080000;
+        // Copy/move requests can opt in; other operation types retain confirmation.
+        if (request.Overwrite && request.Kind is FileOperationKind.Copy or FileOperationKind.Move) flags |= 0x10; // FOF_NOCONFIRMATION
+        if (request.Kind == FileOperationKind.Copy && request.NewName is null && request.Sources.All(s => string.Equals(Path.GetDirectoryName(Path.GetFullPath(s)), Path.TrimEndingDirectorySeparator(request.Destination!), StringComparison.OrdinalIgnoreCase))) flags |= 8;
+        return flags;
     }
     public static bool RequiresInternalDrag(IEnumerable<string> paths) => paths.Any(path => LinkObjectOperations.ContainsLink(path));
     private static void CreateDirectoryTree(string destination, string relativePath, CancellationToken token)

@@ -114,11 +114,14 @@ public partial class MainWindow : Window
             var sources=Model.GetSelectedPaths?.Invoke()??[];
             if(kind==FileOperationKind.Delete){await DeleteSelectedAsync(sources,true);return;}
             var creationTab = Model.Workspace.ActivePane.SelectedTab;
-            var originalEntry = sources.Length == 1 ? creationTab.Entries.FirstOrDefault(entry => StringComparer.OrdinalIgnoreCase.Equals(entry.FullPath, sources[0])) : null;
-            var dialog=new FileOperationDialog(kind,sources.Length,kind==FileOperationKind.CreateDirectory?"新しいフォルダ":kind==FileOperationKind.CreateFile?"新しいファイル.txt":Model.Workspace.OppositePane.SelectedTab.CurrentPath,sources.Length==1?System.IO.Path.GetDirectoryName(sources[0]):null,
-                originalName: sources.Length == 1 ? System.IO.Path.GetFileName(sources[0]) : null, originalIsDirectory: originalEntry?.IsDirectory == true){Owner=this};
+            if (kind is FileOperationKind.Copy or FileOperationKind.Move)
+            {
+                await CopyMoveAsync(kind, sources, creationTab, Model.Workspace.OppositePane.SelectedTab.CurrentPath);
+                return;
+            }
+            var dialog=new FileOperationDialog(kind,sources.Length,kind==FileOperationKind.CreateDirectory?"新しいフォルダ":"新しいファイル.txt"){Owner=this};
             if(dialog.ShowDialog()!=true)return;
-            var request=kind is FileOperationKind.CreateDirectory or FileOperationKind.CreateFile?new FileOperationRequest(kind,[],creationDirectory ?? creationTab.CurrentPath,dialog.Destination):new FileOperationRequest(kind,sources,dialog.Destination,dialog.NewName);
+            var request=new FileOperationRequest(kind,[],creationDirectory ?? creationTab.CurrentPath,dialog.Destination);
             var result = await Model.ExecuteFileOperationAsync(request,new System.Windows.Interop.WindowInteropHelper(this).Handle);
             if (kind is FileOperationKind.CreateFile or FileOperationKind.CreateDirectory && !result.Aborted && creationTab.CurrentPath == request.Destination)
             {
@@ -148,7 +151,7 @@ public partial class MainWindow : Window
                 var originalEntry = Model.Workspace.ActivePane.SelectedTab.Entries.FirstOrDefault(entry => StringComparer.OrdinalIgnoreCase.Equals(entry.FullPath, source));
                 var dialog=new FileOperationDialog(kind,1,folder,folder,System.IO.Path.GetFileName(source),originalIsDirectory:originalEntry?.IsDirectory==true){Owner=this};
                 if(dialog.ShowDialog()!=true)return;
-                requests.Add(SameFolderOperation.Create(kind,source,dialog.NewName!));
+                requests.Add(SameFolderOperation.Create(kind,source,dialog.NewName!) with { Overwrite = dialog.Overwrite });
             }
             if(requests.Select(r=>System.IO.Path.Combine(r.Destination!,r.NewName!)).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=requests.Count)
                 throw new ArgumentException("コピー先の名前が重複しています。");

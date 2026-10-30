@@ -1,7 +1,7 @@
 namespace PaneCommander.Core;
 
 public enum FileOperationKind { Copy, Move, Delete, CreateDirectory, CreateFile }
-public sealed record FileOperationRequest(FileOperationKind Kind, string[] Sources, string? Destination = null, string? NewName = null, bool Recycle = true);
+public sealed record FileOperationRequest(FileOperationKind Kind, string[] Sources, string? Destination = null, string? NewName = null, bool Recycle = true, bool Overwrite = false);
 public sealed record FileOperationResult(bool Aborted);
 public interface IFileOperationService { Task<FileOperationResult> ExecuteAsync(FileOperationRequest request, IntPtr owner, CancellationToken token = default); }
 public enum DropIntent { None, Copy, Move }
@@ -28,6 +28,7 @@ public static class DropPolicy
     public static void Validate(FileOperationRequest request)
     {
         if (!Enum.IsDefined(request.Kind) || request.Sources is null || request.Sources.Length > 32768) throw new ArgumentException("操作の形式が不正です。");
+        if (request.Overwrite && request.Kind is not (FileOperationKind.Copy or FileOperationKind.Move)) throw new ArgumentException("上書きの指定はコピー・移動のみで使用できます。");
         if (request.Kind != FileOperationKind.CreateDirectory && request.NewName is not null && (string.IsNullOrWhiteSpace(request.NewName) || request.NewName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || request.NewName is "." or "..")) throw new ArgumentException("新しい名前が不正です。");
         if (request.Kind != FileOperationKind.Delete && (request.Destination is null || !Path.IsPathFullyQualified(request.Destination))) throw new ArgumentException("送り先は絶対パスで指定してください。");
         if (request.Kind == FileOperationKind.CreateDirectory) DirectoryCreation.ParseRelativePath(request.NewName);

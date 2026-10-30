@@ -37,14 +37,17 @@ public sealed partial class WpfIntegrationTests
                 Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
                 {
                     var dialog = window.OwnedWindows.OfType<FileOperationDialog>().Single();
+                    Assert.IsFalse(Descendants<CheckBox>(dialog).Any(), "実行の前にチェック操作を要求しない");
+                    Assert.IsFalse(dialog.Overwrite, "実行ボタンを押す前は未確定");
+                    Assert.AreEqual(function == 5 ? "コピー（同名は上書き）" : "移動（同名は上書き）", Descendants<Button>(dialog).Single(button => button.IsDefault).Content);
                     var editors = Descendants<TextBox>(dialog).ToArray();
                     var name = editors.Single(editor => editor.Text == fileName);
                     Assert.IsTrue(name.IsKeyboardFocused, "元の名前を入力欄へ表示してフォーカスする");
                     Assert.AreEqual(selectedName, name.SelectedText);
                     Assert.AreEqual(0, name.SelectionStart);
                     var destination = editors.Single(editor => editor != name);
-                    if (sameFolder) Assert.IsTrue(destination.IsReadOnly);
-                    else Assert.AreEqual(model.Workspace.Right.SelectedTab.CurrentPath, destination.Text);
+                    Assert.IsTrue(destination.IsReadOnly, "競合時は名前だけ入力する");
+                    if (!sameFolder) Assert.AreEqual(model.Workspace.Right.SelectedTab.CurrentPath, destination.Text);
                     name.SelectedText = "更新";
                     if (fileName == "report.v1.txt") Assert.AreEqual("更新.txt", name.Text, "打ち替えても拡張子を維持");
                     Descendants<Button>(dialog).Single(button => button.IsDefault).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -59,19 +62,34 @@ public sealed partial class WpfIntegrationTests
                 Pump();
                 Assert.AreEqual(fileName == "report.v1.txt" ? "更新.txt" : "更新", operations.Last!.NewName);
                 Assert.AreEqual(function == 5 ? FileOperationKind.Copy : FileOperationKind.Move, operations.Last.Kind);
+                Assert.IsTrue(operations.Last.Overwrite, "実行ボタンだけで上書きまで確定する");
                 Assert.IsTrue(pane.CurrentFileList!.IsKeyboardFocusWithin);
             }
             var multiple = pane.CurrentFileList!; multiple.SelectedItems.Clear();
             multiple.SelectedItems.Add(multiple.Items[0]); multiple.SelectedItems.Add(multiple.Items[1]);
-            Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
+            for (var index = 0; index < 2; index++) Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
             {
                 var dialog = window.OwnedWindows.OfType<FileOperationDialog>().Single();
-                Assert.AreEqual(1, Descendants<TextBox>(dialog).Count(), "通常の複数コピーは名前を一括変更しない");
-                Assert.IsNull(dialog.NewName); dialog.Close();
+                Assert.AreEqual(2, Descendants<TextBox>(dialog).Count(), "競合した項目ごとに元の名前を入力する");
+                Assert.IsNotNull(dialog.NewName);
+                var name = Descendants<TextBox>(dialog).Single(editor => !editor.IsReadOnly);
+                name.Text += "-copy";
+                Descendants<Button>(dialog).Single(button => button.IsDefault).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             });
             model.Functions[4].Command.Execute(null); Pump();
+            Assert.IsTrue(operations.Last!.Overwrite);
+            Assert.AreEqual(1, operations.Last.Sources.Length);
+            foreach (var kind in new[] { FileOperationKind.CreateFile, FileOperationKind.CreateDirectory })
+            {
+                var dialog = new FileOperationDialog(kind, 0, "new-item") { Owner = window };
+                dialog.Show(); Pump();
+                Assert.AreEqual("OK", Descendants<Button>(dialog).Single(button => button.IsDefault).Content);
+                Assert.IsFalse(dialog.Overwrite, "新規作成に上書きを適用しない");
+                dialog.Close();
+            }
         }
         finally { window.Close(); Pump(); }
+        VerifyCopyMoveCollisionFlow();
     }
     private sealed class OperationNameFiles : IFileSystemService
     {
